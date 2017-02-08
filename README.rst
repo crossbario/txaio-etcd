@@ -5,7 +5,7 @@ txaioetcd - etcd for Twisted
 
 **txaioetcd** currently supports these etcd3 basic
 
-- `set and get values by key <#getting-values>`_
+- set and get_ values by key
 - arbitrary byte strings for keys and values
 - get values by range or prefix
 - delete value (by single key, range and prefix)
@@ -70,6 +70,8 @@ Here is an example etcd3 client that retrieves the cluster status
 The following snippets demonstrate the etcd3 features supported by txaioetcd. To run the snippets, use the boilerplate above.
 
 
+.. _get:
+
 Getting values
 ..............
 
@@ -91,6 +93,8 @@ or providing a default value
     value = yield client.get(b'/foo', None)
     print('value={}'.format(value))
 
+.. _get_range:
+
 **Iterate** over key **range**
 
 .. sourcecode:: python
@@ -98,6 +102,8 @@ or providing a default value
     pairs = yield client.get(txaioetcd.KeySet(b'/foo1', b'/foo5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
+
+.. _get_prefix:
 
 **Iterate** over keys with given **prefix**
 
