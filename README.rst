@@ -1,13 +1,11 @@
-etcd for Twisted
-================
+txaioetcd - etcd for Twisted
+============================
 
-`etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn.
+`etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn. Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
 
-Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
+**txaioetcd** currently supports these etcd3 basic
 
-txaioetcd currently supports these etcd3 basic
-
-- set and get values by key
+- `set and get values by key <#getting-values>`_
 - arbitrary byte strings for keys and values
 - get values by range or prefix
 - delete value (by single key, range and prefix)
@@ -18,7 +16,7 @@ and advanced features
 - create, refresh and delete leases
 - submit transactions
 
-txaioetcd also provides abstractions on top of the etcd3 transaction primitive:
+**txaioetcd** also provides abstractions on top of the etcd3 transaction primitive:
 
 - global locks and sequences
 - transactional, multi-consumer-producer queues
@@ -38,6 +36,8 @@ Installation
 ------------
 
 To install txaioetcd, use `pip <https://pip.pypa.io/en/stable/>`_ and
+
+.. code-block:: sh
 
     pip install txaioetcd
 
