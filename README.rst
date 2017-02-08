@@ -174,23 +174,23 @@ The library uses the `gRPC HTTP gateway <https://coreos.com/etcd/docs/latest/dev
 `Twisted Web agent <https://twistedmatrix.com/documents/current/web/howto/client.html>`_ and `treq <https://github.com/twisted/treq>`_ is used for HTTP, and both use a configurable Twisted Web HTTP connection pool.
 
 
-Limitations
------------
+Current limitations
+-------------------
 
-No asyncio
-..........
+Missing asyncio support
+.......................
 
 The API of txetcd3 was designed not leaking anything from Twisted other than Deferreds. This is in line with the approach that txaio takes. It will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
 
-No native protocol
-..................
+Missing native protocol support
+...............................
 
 The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the binary payload is transmitted JSON with string values that Base64 encode the binary values of the etcd3 API.
 
 Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted client. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
 
-No dynamic watches
-..................
+Missing dynamic watches
+.......................
 
 The HTTP/2 etcd3 native protocol allows to change a created watch on the fly. Maybe the gRPC HTTP gateway also allows that.
 
