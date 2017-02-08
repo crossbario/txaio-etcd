@@ -5,7 +5,7 @@ txaioetcd - etcd for Twisted
 
 **txaioetcd** currently supports these etcd3 basic
 
-- set and <a href="#getting-values>get</a> by key
+- set and get values by key
 - arbitrary byte strings for keys and values
 - get values by range or prefix
 - delete value (by single key, range and prefix)
@@ -70,10 +70,19 @@ Here is an example etcd3 client that retrieves the cluster status
 The following snippets demonstrate the etcd3 features supported by txaioetcd. To run the snippets, use the boilerplate above.
 
 
-.. _get:
+Setting keys
+............
 
-Getting values
-..............
+**Set** a value for some keys
+
+.. sourcecode:: python
+
+    for i in range(10):
+        client.set('/foo{}'.format(i).encode(), b'woa;)')
+
+
+Getting keys
+............
 
 **Get a value by key** from etcd
 
@@ -99,7 +108,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(txaioetcd.KeySet(b'/foo1', b'/foo5'))
+    pairs = yield client.get(KeySet(b'/foo1', b'/foo5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -109,20 +118,9 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(txaioetcd.KeySet(b'/foo', prefix=True))
+    pairs = yield client.get(KeySet(b'/foo', prefix=True))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
-
-
-Setting values
-..............
-
-**Set** a value for some keys
-
-.. sourcecode:: python
-
-    for i in range(10):
-        client.set('/foo{}'.format(i).encode(), b'woa;)')
 
 
 Deleting keys
@@ -138,18 +136,18 @@ Deleting keys
 
 .. sourcecode:: python
 
-    client.delete(txaioetcd.KeySet(b'/foo3', b'/foo7'))
+    client.delete(KeySet(b'/foo3', b'/foo7'))
 
-**Delete** set of keys with given prefix and return previous key-value pairs
+**Delete** set of keys with given prefix and **return** previous key-value pairs
 
 .. sourcecode:: python
 
-    deleted = yield client.delete(txaioetcd.KeySet(b'/foo3'), return_previous=True)
+    deleted = yield client.delete(KeySet(b'/foo3'), return_previous=True)
     print('deleted key-value pairs: {}'.format(deleted))
 
 
-Watching on keys
-................
+Watching keys
+.............
 
 **Watch** keys for changes
 
@@ -160,7 +158,7 @@ Watching on keys
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on set of keys with given prefix
-    d = client.watch([txaioetcd.KeySet(b'/foo', prefix=True)], on_change)
+    d = client.watch([KeySet(b'/foo', prefix=True)], on_change)
     print('watching ..')
 
     # stop after 10 seconds
