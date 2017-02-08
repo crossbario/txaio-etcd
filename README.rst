@@ -51,26 +51,23 @@ Get value by key
     # get value for a key
     try:
         value = yield client.get(b'/cf/foo')
-        print('value={}'.format(value))
     except IndexError:
         print('no such key =(')
+    else:
+        print('value={}'.format(value))
 
 Set a value for a bunch of keys
 
 .. sourcecode:: python
 
     for i in range(3):
-        # both keys and value are bytes in etcd3
-        rev = yield client.set('/cf/foo0{}'.format(i).encode(), b'woa;)')
-        print('value set, revision={}'.format(rev))
+        yield client.set('/cf/foo0{}'.format(i).encode(), b'woa;)')
 
 Delete a single key
 
 .. sourcecode:: python
 
-    key = u'/cf/foo02'.encode()
-    deleted = yield client.delete(key)
-    print(deleted)
+    yield client.delete(b'/cf/foo02')
 
 Iterate over key range
 
