@@ -74,6 +74,9 @@ To scratch the etcd database
 Usage
 -----
 
+Example Client
+..............
+
 Here is an example etcd3 client that retrieves the cluster status
 
 .. sourcecode:: python
@@ -85,9 +88,9 @@ Here is an example etcd3 client that retrieves the cluster status
 
     @inlineCallbacks
     def main(reactor):
-        client = Client(reactor, u'http://localhost:2379')
+        etcd = Client(reactor, u'http://localhost:2379')
 
-        status = yield client.status()
+        status = yield etcd.status()
         print(status)
 
         # insert one of the snippets below HERE
@@ -107,9 +110,12 @@ Setting keys
 .. sourcecode:: python
 
     for i in range(10):
-        client.set('/foo{}'.format(i).encode(), b'woa;)')
+        etcd.set('/foo{}'.format(i).encode(), b'woa;)')
 
-Note that both keys and values in etcd3 are arbitrary byte strings. If you use UTF-8 encoded strings with leading slash or anything else does not matter to etcd3. There also is no semantics associated with slashes on sides of etcd3 whatsoever. So slash semantics is fully up to an application.
+Note that both keys and values in etcd3 are arbitrary byte strings.
+
+Whether you use UTF-8 encoded strings with leading slash or anything else does not matter to etcd3. Put differently, there is no semantics associated with slashes on sides of etcd3 whatsoever and slash semantics - if any - is fully up to an application.
+
 
 Getting keys
 ............
@@ -119,7 +125,7 @@ Getting keys
 .. sourcecode:: python
 
     try:
-        value = yield client.get(b'/foo')
+        value = yield etcd.get(b'/foo')
     except IndexError:
         print('no such key')
     else:
@@ -129,7 +135,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    value = yield client.get(b'/foo', None)
+    value = yield etcd.get(b'/foo', None)
     print('value={}'.format(value))
 
 .. _get_range:
@@ -138,7 +144,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(KeySet(b'/foo1', b'/foo5'))
+    pairs = yield etcd.get(KeySet(b'/foo1', b'/foo5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -148,7 +154,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(KeySet(b'/foo', prefix=True))
+    pairs = yield etcd.get(KeySet(b'/foo', prefix=True))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -160,19 +166,19 @@ Deleting keys
 
 .. sourcecode:: python
 
-    client.delete(b'/foo3')
+    etcd.delete(b'/foo3')
 
 **Delete** set of keys in given range
 
 .. sourcecode:: python
 
-    client.delete(KeySet(b'/foo3', b'/foo7'))
+    etcd.delete(KeySet(b'/foo3', b'/foo7'))
 
 **Delete** set of keys with given prefix and **return** previous key-value pairs
 
 .. sourcecode:: python
 
-    deleted = yield client.delete(KeySet(b'/foo3'), return_previous=True)
+    deleted = yield etcd.delete(KeySet(b'/foo3'), return_previous=True)
     print('deleted key-value pairs: {}'.format(deleted))
 
 
@@ -188,12 +194,41 @@ Watching keys
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on set of keys with given prefix
-    d = client.watch([KeySet(b'/foo', prefix=True)], on_change)
+    d = etcd.watch([KeySet(b'/foo', prefix=True)], on_change)
     print('watching ..')
 
     # stop after 10 seconds
     yield sleep(10)
     d.cancel()
+
+
+Locks
+.....
+
+Create or wait to acquire a named lock
+
+.. sourcecode:: python
+
+    lock = yield etcd.lock(b'my-resource')
+
+    # now do something on the exclusively locked resource
+
+    lock.release()
+
+Create or wait to acquire, but with a timeout
+
+
+.. sourcecode:: python
+
+    try:
+        lock = yield etcd.lock(b'my-resource', timeout=10)
+    except Timeout:
+        print('could not acquire lock: timeout')
+    else:
+
+        # operate on the locked resource
+
+        lock.release()
 
 
 Design Goals
@@ -213,7 +248,7 @@ Implementation
 
 The library uses the `gRPC HTTP gateway <https://coreos.com/etcd/docs/latest/dev-guide/api_grpc_gateway.html>`_ within etcd3 and talks regular HTTP/1.1 with efficient long-polling for watching keys.
 
-`Twisted Web agent <https://twistedmatrix.com/documents/current/web/howto/client.html>`_ and `treq <https://github.com/twisted/treq>`_ is used for HTTP, and both use a configurable Twisted Web HTTP connection pool.
+`Twisted Web agent <https://twistedmatrix.com/documents/current/web/howto/etcd.html>`_ and `treq <https://github.com/twisted/treq>`_ is used for HTTP, and both use a configurable Twisted Web HTTP connection pool.
 
 
 Current limitations
@@ -229,7 +264,7 @@ Missing native protocol support
 
 The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the binary payload is transmitted JSON with string values that Base64 encode the binary values of the etcd3 API.
 
-Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted client. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
+Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted etcd. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
 
 Missing dynamic watches
 .......................
@@ -242,3 +277,22 @@ And further, the API of txaioetcd doesn't expose it either. A watch is created, 
 
 Regarding the public API of txaioetcd, I think there will be a way that would allow adding dynamic watches that is upward compatible and hence wouldn't break any app code. So it also can be done later.
 
+
+Asynchronous Iterators
+......................
+
+When a larger set of keys and/or values is fetched, it might be beneficial to apply the asynchronous iterator pattern.
+
+This might come in handy on newer Pythons with syntax for that.
+
+Note that a full blown consumer-producer (flow-controller) pattern is probably overkill, as etcd3 isn't for large blobs or media files.
+
+
+Asynchronous Context Managers
+.............................
+
+.. sourcecode:: python
+
+    with etcd.lock('doot-machine') as lock:
+        # whatever the way this block finishes,
+        # the lock will be unlocked
