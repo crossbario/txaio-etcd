@@ -29,17 +29,43 @@ Requirements
 
 The implementation is pure Python code compatible with both **Python 2 and 3**, and runs perfect on **PyPy**.
 
-The library requires **Twisted** (asyncio support could be added with no API break), but other than that only has minimal, Python-only dependencies.
+The library requires **Twisted** (asyncio support could be added with no API break), but other than that only has minimal, Python dependencies.
 
 
 Installation
 ------------
 
-To install txaioetcd, use `pip <https://pip.pypa.io/en/stable/>`_ and
+First build and install etcd 3.1
+
+.. code-block:: sh
+
+    ETCD_VER=v3.1.0
+    DOWNLOAD_URL=https://github.com/coreos/etcd/releases/download
+    curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
+    mkdir -p /opt/etcd && tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /opt/etcd --strip-components=1
+
+To verify the installation, check the version
+
+.. code-block:: sh
+
+    /opt/etcd/etcd --version
+
+Then install txaioetcd
 
 .. code-block:: sh
 
     pip install txaioetcd
+
+Open a console and start etcd
+
+.. code-block:: sh
+
+    /opt/etcd/etcd
+
+To scratch the etcd database
+
+.. code-block:: sh
+    rm -rf ~/default.etcd/
 
 
 Usage
