@@ -41,8 +41,10 @@ First build and install etcd 3.1
 
     ETCD_VER=v3.1.0
     DOWNLOAD_URL=https://github.com/coreos/etcd/releases/download
-    curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-    mkdir -p /opt/etcd && tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /opt/etcd --strip-components=1
+    curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz \
+        -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
+    mkdir -p /opt/etcd && tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz \
+        -C /opt/etcd --strip-components=1
 
 To verify the installation, check the version
 
@@ -65,6 +67,7 @@ Open a console and start etcd
 To scratch the etcd database
 
 .. code-block:: sh
+
     rm -rf ~/default.etcd/
 
 
@@ -77,12 +80,12 @@ Here is an example etcd3 client that retrieves the cluster status
 
     from twisted.internet.task import react
     from twisted.internet.defer import inlineCallbacks
-    import txaioetcd
+    from txaioetcd import Client, KeySet
     import txaio
 
     @inlineCallbacks
     def main(reactor):
-        client = txaioetcd.Client(reactor, u'http://localhost:2379')
+        client = Client(reactor, u'http://localhost:2379')
 
         status = yield client.status()
         print(status)
@@ -106,6 +109,7 @@ Setting keys
     for i in range(10):
         client.set('/foo{}'.format(i).encode(), b'woa;)')
 
+Note that both keys and values in etcd3 are arbitrary byte strings. If you use UTF-8 encoded strings with leading slash or anything else does not matter to etcd3. There also is no semantics associated with slashes on sides of etcd3 whatsoever. So slash semantics is fully up to an application.
 
 Getting keys
 ............
