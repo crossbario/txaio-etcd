@@ -1,12 +1,19 @@
 txetcd3
 =======
 
-**txetcd3** is a Twisted client for `etcd3 <https://coreos.com/etcd/docs/latest/>`_ and supports the following features of etcd3:
+`etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn.
 
-- set/get value by key with arbitrary byte strings for both
-- get values by range
-- delete value (single key and by range)
-- watch keys and key prefixes with asynchronous callback
+Hence the need for a fully asynchronous etcd3 Twisted client with broad feature support: **txetcd3**.
+
+Currently supported features:
+
+- set and get values by bkey
+- arbitrary byte strings for keys and values
+- get values by range or prefix
+- delete value (by single key, range and prefix)
+- watch key sets with asynchronous callback
+- create, refresh and delete leases
+- submit transactions
 
 
 Requirements
