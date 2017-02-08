@@ -37,10 +37,7 @@ To install txetcd3, use `pip <https://pip.pypa.io/en/stable/>`_ and
 Usage
 -----
 
-Boilerplate
-...........
-
-The following will create an etcd3 client, retrieve the cluster status and exit
+Here is an example etcd3 client that retrieves the cluster status
 
 .. sourcecode:: python
 
@@ -62,10 +59,11 @@ The following will create an etcd3 client, retrieve the cluster status and exit
         txaio.start_logging(level='info')
         react(main)
 
-Snippets
-........
-
 The following snippets demonstrate the etcd3 features supported by txetcd3. To run the snippets, use the boilerplate above.
+
+
+Getting values
+..............
 
 **Get a value by key** from etcd
 
@@ -101,12 +99,20 @@ or providing a default value
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
+
+Setting values
+..............
+
 **Set** a value for some keys
 
 .. sourcecode:: python
 
     for i in range(10):
         client.set('/foo{}'.format(i).encode(), b'woa;)')
+
+
+Deleting keys
+.............
 
 **Delete** a (single) key
 
@@ -126,6 +132,10 @@ or providing a default value
 
     deleted = yield client.delete(txetcd3.KeySet(b'/foo3'), return_previous=True)
     print('deleted key-value pairs: {}'.format(deleted))
+
+
+Watching on keys
+................
 
 **Watch** keys for changes
 
