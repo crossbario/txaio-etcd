@@ -19,6 +19,92 @@ The implementation is pure Python code compatible with both **Python 2 and 3**, 
 The library (obviously) requires **Twisted**, but other than that only has minimal, Python-only dependencies.
 
 
+Usage
+-----
+
+Create a client and get etcd status
+
+.. sourcecode:: python
+
+    from twisted.internet.task import react
+    from twisted.internet.defer import inlineCallbacks
+    import txetcd3
+    import txaio
+
+    @inlineCallbacks
+    def main(reactor):
+        # a Twisted etcd client
+        client = txetcd3.Client(reactor, u'http://localhost:2379')
+
+        # get etcd status
+        status = yield client.status()
+        print(status)
+
+    if __name__ == '__main__':
+        txaio.start_logging(level='info')
+        react(main)
+
+Get value by key
+
+.. sourcecode:: python
+
+    # get value for a key
+    try:
+        value = yield client.get(b'/cf/foo')
+        print('value={}'.format(value))
+    except IndexError:
+        print('no such key =(')
+
+Set a value for a bunch of keys
+
+.. sourcecode:: python
+
+    for i in range(3):
+        # both keys and value are bytes in etcd3
+        rev = yield client.set('/cf/foo0{}'.format(i).encode(), b'woa;)')
+        print('value set, revision={}'.format(rev))
+
+Delete a single key
+
+.. sourcecode:: python
+
+    key = u'/cf/foo02'.encode()
+    deleted = yield client.delete(key)
+    print(deleted)
+
+Iterate over key range
+
+.. sourcecode:: python
+
+    pairs = yield client.get(b'/cf/foo01', b'/cf/foo05')
+    for key, value in pairs.items():
+        print('key={}: {}'.format(key, value))
+
+Iterate over keys with given prefix
+
+.. sourcecode:: python
+
+    pairs = yield client.get(b'/cf/foo0', prefix=True)
+    for key, value in pairs.items():
+        print('key={}: {}'.format(key, value))
+
+Watch keys for change events
+
+.. sourcecode:: python
+
+    # our callback that will be invoked for every change event
+    def on_watch(key, value):
+        print('watch callback fired for key {}: {}'.format(key, value))
+
+    # start watching on given key prefixes
+    d = client.watch([b'/cf/', b'/foo/'], on_watch)
+
+    # watch for 10 seconds and then stop watching
+    print('watching ..')
+    yield sleep(10)
+    yield d.cancel()
+
+
 Design Goals
 ------------
 
@@ -34,7 +120,9 @@ The implementation must run fast on PyPy, which rules out using native code wrap
 Implementation
 --------------
 
-The library uses the gRPC HTTP gateway inside etcd3 and will talk over regular HTTP/1.1, with efficient long-polling for watching keys.
+The library uses the `gRPC HTTP gateway <https://coreos.com/etcd/docs/latest/dev-guide/api_grpc_gateway.html>`_ within etcd3 and talks regular HTTP/1.1 with efficient long-polling for watching keys.
+
+`Twisted Web agent <https://twistedmatrix.com/documents/current/web/howto/client.html>`_ and `treq <https://github.com/twisted/treq>`_ is used for HTTP, and both use a configurable Twisted Web HTTP connection pool.
 
 
 Limitations

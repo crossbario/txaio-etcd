@@ -57,8 +57,8 @@ def main(reactor):
 
     # delete key
     key = u'/cf/foo02'.encode()
-    rev = yield client.delete(key)
-    print(rev)
+    deleted = yield client.delete(key)
+    print(deleted)
 
     # iterate over key range (maybe an async iter in the future?)
     pairs = yield client.get(b'/cf/foo01', b'/cf/foo05')
