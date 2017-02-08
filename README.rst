@@ -33,7 +33,7 @@ Usage
 Boilerplate
 ...........
 
-The following will create a etcd3 client, retrieve the cluster status and exit
+The following will create an etcd3 client, retrieve the cluster status and exit
 
 .. sourcecode:: python
 
@@ -44,10 +44,8 @@ The following will create a etcd3 client, retrieve the cluster status and exit
 
     @inlineCallbacks
     def main(reactor):
-        # a Twisted etcd client
         client = txetcd3.Client(reactor, u'http://localhost:2379')
 
-        # get etcd status
         status = yield client.status()
         print(status)
 
@@ -73,18 +71,12 @@ The following snippets demonstrate the etcd3 features supported by txetcd3. To r
     else:
         print('value={}'.format(value))
 
-**Set** a value for a bunch of keys
+or providing a default value
 
 .. sourcecode:: python
 
-    for i in range(10):
-        client.set('/foo{}'.format(i).encode(), b'woa;)')
-
-**Delete** a (single) key
-
-.. sourcecode:: python
-
-    client.delete(b'/foo3')
+    value = yield client.get(b'/foo', None)
+    print('value={}'.format(value))
 
 **Iterate** over key **range**
 
@@ -102,6 +94,32 @@ The following snippets demonstrate the etcd3 features supported by txetcd3. To r
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
+**Set** a value for some keys
+
+.. sourcecode:: python
+
+    for i in range(10):
+        client.set('/foo{}'.format(i).encode(), b'woa;)')
+
+**Delete** a (single) key
+
+.. sourcecode:: python
+
+    client.delete(b'/foo3')
+
+**Delete** set of keys in given range
+
+.. sourcecode:: python
+
+    client.delete(txetcd3.KeySet(b'/foo3', b'/foo7'))
+
+**Delete** set of keys with given prefix and return previous key-value pairs
+
+.. sourcecode:: python
+
+    deleted = yield client.delete(txetcd3.KeySet(b'/foo3'), return_previous=True)
+    print('deleted key-value pairs: {}'.format(deleted))
+
 **Watch** keys for changes
 
 .. sourcecode:: python
@@ -111,7 +129,7 @@ The following snippets demonstrate the etcd3 features supported by txetcd3. To r
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on set of keys with given prefix
-    d = client.watch(txetcd3.KeySet(b'/foo', prefix=True), on_change)
+    d = client.watch([txetcd3.KeySet(b'/foo', prefix=True)], on_change)
     print('watching ..')
 
     # stop after 10 seconds
