@@ -5,7 +5,7 @@ txaioetcd - etcd for Twisted
 
 **txaioetcd** currently supports these etcd3 basic
 
-- set and get_ values by key
+- set and <a href="#getting-values>get</a> by key
 - arbitrary byte strings for keys and values
 - get values by range or prefix
 - delete value (by single key, range and prefix)
