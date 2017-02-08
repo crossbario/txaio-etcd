@@ -161,7 +161,7 @@ We want etcd3 support because of the extended, useful functionality and semantic
 
 Supporting etcd2 using a restricted parallel API or by hiding away the differences between etcd2 and etcd3 seems ugly and we didn't needed etcd2 support anyway. So etcd2 support is a non-goal.
 
-The implementation must be fully non-blocking and asynchronous, and must run on Twisted in particular.
+The implementation must be fully non-blocking and asynchronous, and must run on Twisted in particular. Supporting asyncio, or even a Python 3.5+ syntax for Twisted etc etc seems possible to add later without affecting the API.
 
 The implementation must run fast on PyPy, which rules out using native code wrapped using cpyext. We also want to avoid native code in general, as it introduces security and memory-leak worries, and PyPy's JIT produces very fast code anyway.
 
@@ -176,4 +176,27 @@ The library uses the `gRPC HTTP gateway <https://coreos.com/etcd/docs/latest/dev
 
 Limitations
 -----------
+
+No asyncio
+..........
+
+The API of txetcd3 was designed not leaking anything from Twisted other than Deferreds. This is in line with the approach that txaio takes. It will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
+
+No native protocol
+..................
+
+The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the binary payload is transmitted JSON with string values that Base64 encode the binary values of the etcd3 API.
+
+Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted client. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
+
+No dynamic watches
+..................
+
+The HTTP/2 etcd3 native protocol allows to change a created watch on the fly. Maybe the gRPC HTTP gateway also allows that.
+
+But I couldn't get a streaming *request* working with neither Twisted Web agent nor treq. A streaming *response* works of course, as in fact this is how the watch feature in txetcd3 is implemented.
+
+And further, the API of txetcd3 doesn't expose it either. A watch is created, started and a Twisted Deferred (or possibly asyncio Future) is returned. The watch can be stopped by canceling the Deferred (Future) previously returned - but that is it. A watch cannot be changed after the fact.
+
+Regarding the public API of txetcd3, I think there will be a way that would allow adding dynamic watches that is upward compatible and hence wouldn't break any app code. So it also can be done later.
 
