@@ -33,7 +33,7 @@ Usage
 Boilerplate
 ...........
 
-To create a client and get etcd status, run the following
+The following will create a etcd3 client, retrieve the cluster status and exit
 
 .. sourcecode:: python
 
@@ -62,36 +62,35 @@ Snippets
 
 The following snippets demonstrate the etcd3 features supported by txetcd3. To run the snippets, use the boilerplate above.
 
-To **get a value by key** from etcd
+**Get a value by key** from etcd
 
 .. sourcecode:: python
 
-    # get value for a key
     try:
-        value = yield client.get(b'/cf/foo')
+        value = yield client.get(b'/foo')
     except IndexError:
         print('no such key')
     else:
         print('value={}'.format(value))
 
-**Set a value** for a bunch of keys
+**Set** a value for a bunch of keys
 
 .. sourcecode:: python
 
     for i in range(10):
-        yield client.set('/cf/foo{}'.format(i).encode(), b'woa;)')
+        client.set('/foo{}'.format(i).encode(), b'woa;)')
 
 **Delete** a (single) key
 
 .. sourcecode:: python
 
-    yield client.delete(b'/cf/foo3')
+    client.delete(b'/foo3')
 
 **Iterate** over key **range**
 
 .. sourcecode:: python
 
-    pairs = yield client.get(b'/cf/foo1', b'/cf/foo5')
+    pairs = yield client.get(txetcd3.KeySet(b'/foo1', b'/foo5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -99,7 +98,7 @@ To **get a value by key** from etcd
 
 .. sourcecode:: python
 
-    pairs = yield client.get(b'/cf/foo', prefix=True)
+    pairs = yield client.get(txetcd3.KeySet(b'/foo', prefix=True))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -107,17 +106,17 @@ To **get a value by key** from etcd
 
 .. sourcecode:: python
 
-    # our callback that will be invoked for every change event
-    def on_watch(key, value):
+    # callback invoked for every change
+    def on_change(key, value):
         print('watch callback fired for key {}: {}'.format(key, value))
 
-    # start watching on given key prefixes
-    d = client.watch([b'/cf/foo'], on_watch)
-
-    # watch for 10 seconds and then stop watching
+    # start watching on set of keys with given prefix
+    d = client.watch(txetcd3.KeySet(b'/foo', prefix=True), on_change)
     print('watching ..')
+
+    # stop after 10 seconds
     yield sleep(10)
-    yield d.cancel()
+    d.cancel()
 
 
 Design Goals
