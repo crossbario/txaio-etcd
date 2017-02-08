@@ -1,9 +1,9 @@
-txetcd3
-=======
+etcd for Twisted
+================
 
 `etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn.
 
-Hence the need for a fully asynchronous etcd3 Twisted client with broad feature support: **txetcd3**.
+Hence the need for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
 
 Currently supported features:
 
@@ -23,15 +23,15 @@ Requirements
 
 The implementation is pure Python code compatible with both **Python 2 and 3**, and runs perfect on **PyPy**.
 
-The library (obviously) requires **Twisted**, but other than that only has minimal, Python-only dependencies.
+The library requires **Twisted** (asyncio support could be added with no API break), but other than that only has minimal, Python-only dependencies.
 
 
 Installation
 ------------
 
-To install txetcd3, use `pip <https://pip.pypa.io/en/stable/>`_ and
+To install txaioetcd, use `pip <https://pip.pypa.io/en/stable/>`_ and
 
-    pip install txetcd3
+    pip install txaioetcd
 
 
 Usage
@@ -43,12 +43,12 @@ Here is an example etcd3 client that retrieves the cluster status
 
     from twisted.internet.task import react
     from twisted.internet.defer import inlineCallbacks
-    import txetcd3
+    import txaioetcd
     import txaio
 
     @inlineCallbacks
     def main(reactor):
-        client = txetcd3.Client(reactor, u'http://localhost:2379')
+        client = txaioetcd.Client(reactor, u'http://localhost:2379')
 
         status = yield client.status()
         print(status)
@@ -59,7 +59,7 @@ Here is an example etcd3 client that retrieves the cluster status
         txaio.start_logging(level='info')
         react(main)
 
-The following snippets demonstrate the etcd3 features supported by txetcd3. To run the snippets, use the boilerplate above.
+The following snippets demonstrate the etcd3 features supported by txaioetcd. To run the snippets, use the boilerplate above.
 
 
 Getting values
@@ -87,7 +87,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(txetcd3.KeySet(b'/foo1', b'/foo5'))
+    pairs = yield client.get(txaioetcd.KeySet(b'/foo1', b'/foo5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -95,7 +95,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield client.get(txetcd3.KeySet(b'/foo', prefix=True))
+    pairs = yield client.get(txaioetcd.KeySet(b'/foo', prefix=True))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -124,13 +124,13 @@ Deleting keys
 
 .. sourcecode:: python
 
-    client.delete(txetcd3.KeySet(b'/foo3', b'/foo7'))
+    client.delete(txaioetcd.KeySet(b'/foo3', b'/foo7'))
 
 **Delete** set of keys with given prefix and return previous key-value pairs
 
 .. sourcecode:: python
 
-    deleted = yield client.delete(txetcd3.KeySet(b'/foo3'), return_previous=True)
+    deleted = yield client.delete(txaioetcd.KeySet(b'/foo3'), return_previous=True)
     print('deleted key-value pairs: {}'.format(deleted))
 
 
@@ -146,7 +146,7 @@ Watching on keys
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on set of keys with given prefix
-    d = client.watch([txetcd3.KeySet(b'/foo', prefix=True)], on_change)
+    d = client.watch([txaioetcd.KeySet(b'/foo', prefix=True)], on_change)
     print('watching ..')
 
     # stop after 10 seconds
@@ -180,7 +180,7 @@ Current limitations
 Missing asyncio support
 .......................
 
-The API of txetcd3 was designed not leaking anything from Twisted other than Deferreds. This is in line with the approach that txaio takes. It will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
+The API of txaioetcd was designed not leaking anything from Twisted other than Deferreds. This is in line with the approach that txaio takes. It will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
 
 Missing native protocol support
 ...............................
@@ -194,9 +194,9 @@ Missing dynamic watches
 
 The HTTP/2 etcd3 native protocol allows to change a created watch on the fly. Maybe the gRPC HTTP gateway also allows that.
 
-But I couldn't get a streaming *request* working with neither Twisted Web agent nor treq. A streaming *response* works of course, as in fact this is how the watch feature in txetcd3 is implemented.
+But I couldn't get a streaming *request* working with neither Twisted Web agent nor treq. A streaming *response* works of course, as in fact this is how the watch feature in txaioetcd is implemented.
 
-And further, the API of txetcd3 doesn't expose it either. A watch is created, started and a Twisted Deferred (or possibly asyncio Future) is returned. The watch can be stopped by canceling the Deferred (Future) previously returned - but that is it. A watch cannot be changed after the fact.
+And further, the API of txaioetcd doesn't expose it either. A watch is created, started and a Twisted Deferred (or possibly asyncio Future) is returned. The watch can be stopped by canceling the Deferred (Future) previously returned - but that is it. A watch cannot be changed after the fact.
 
-Regarding the public API of txetcd3, I think there will be a way that would allow adding dynamic watches that is upward compatible and hence wouldn't break any app code. So it also can be done later.
+Regarding the public API of txaioetcd, I think there will be a way that would allow adding dynamic watches that is upward compatible and hence wouldn't break any app code. So it also can be done later.
 

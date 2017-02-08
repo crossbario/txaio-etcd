@@ -30,8 +30,8 @@ from txaio._version import __version__
 
 version = __version__
 
-from txetcd3.client import Client
-from txetcd3.types import Value, Header, Status, Deleted
+from txaioetcd.client import Client
+from txaioetcd.types import Value, Header, Status, Deleted
 
 __all__ = (
     '__version__',

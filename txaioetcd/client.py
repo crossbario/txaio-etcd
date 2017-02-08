@@ -43,7 +43,7 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txetcd3.types import Value, Header, Status, Deleted
+from txaioetcd.types import Value, Header, Status, Deleted
 
 __all__ = (
     'Client',

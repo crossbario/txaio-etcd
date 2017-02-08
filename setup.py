@@ -27,7 +27,7 @@
 from setuptools import setup
 
 
-with open('txetcd3/_version.py') as f:
+with open('txaioetcd/_version.py') as f:
     exec(f.read())  # defines __version__
 
 with open('README.rst') as f:
@@ -47,12 +47,12 @@ extras_require_dev = [
 ]
 
 setup(
-    name='txetcd3',
+    name='txaioetcd',
     version=__version__,
     description='A Twisted client for etcd3',
     long_description=docstr,
     author='Crossbar.io Technologies GmbH',
-    url='https://github.com/crossbario/txetcd3',
+    url='https://github.com/crossbario/txaio-etcd',
     platforms=('Any'),
     install_requires=[
         'six',                          # MIT
@@ -63,7 +63,7 @@ setup(
     extras_require={
         'dev': extras_require_dev,
     },
-    packages=['txetcd3'],
+    packages=['txaioetcd'],
     zip_safe=True,
     # http://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[

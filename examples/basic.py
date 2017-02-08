@@ -29,7 +29,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from autobahn.twisted.util import sleep
 
-import txetcd3
+from txaioetcd import Client
 import txaio
 
 
@@ -37,7 +37,7 @@ import txaio
 def main(reactor):
 
     # a Twisted etcd client
-    client = txetcd3.Client(reactor, u'http://localhost:2379')
+    client = Client(reactor, u'http://localhost:2379')
 
     # get etcd status
     status = yield client.status()
