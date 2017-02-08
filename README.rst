@@ -19,10 +19,21 @@ The implementation is pure Python code compatible with both **Python 2 and 3**, 
 The library (obviously) requires **Twisted**, but other than that only has minimal, Python-only dependencies.
 
 
+Installation
+------------
+
+To install txetcd3, use `pip <https://pip.pypa.io/en/stable/>`_ and
+
+    pip install txetcd3
+
+
 Usage
 -----
 
-Create a client and get etcd status
+Boilerplate
+...........
+
+To create a client and get etcd status, run the following
 
 .. sourcecode:: python
 
@@ -40,11 +51,18 @@ Create a client and get etcd status
         status = yield client.status()
         print(status)
 
+        # insert one of the snippets below HERE
+
     if __name__ == '__main__':
         txaio.start_logging(level='info')
         react(main)
 
-Get value by key
+Snippets
+........
+
+The following snippets demonstrate the etcd3 features supported by txetcd3. To run the snippets, use the boilerplate above.
+
+To **get a value by key** from etcd
 
 .. sourcecode:: python
 
@@ -52,40 +70,40 @@ Get value by key
     try:
         value = yield client.get(b'/cf/foo')
     except IndexError:
-        print('no such key =(')
+        print('no such key')
     else:
         print('value={}'.format(value))
 
-Set a value for a bunch of keys
+**Set a value** for a bunch of keys
 
 .. sourcecode:: python
 
-    for i in range(3):
-        yield client.set('/cf/foo0{}'.format(i).encode(), b'woa;)')
+    for i in range(10):
+        yield client.set('/cf/foo{}'.format(i).encode(), b'woa;)')
 
-Delete a single key
-
-.. sourcecode:: python
-
-    yield client.delete(b'/cf/foo02')
-
-Iterate over key range
+**Delete** a (single) key
 
 .. sourcecode:: python
 
-    pairs = yield client.get(b'/cf/foo01', b'/cf/foo05')
+    yield client.delete(b'/cf/foo3')
+
+**Iterate** over key **range**
+
+.. sourcecode:: python
+
+    pairs = yield client.get(b'/cf/foo1', b'/cf/foo5')
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
-Iterate over keys with given prefix
+**Iterate** over keys with given **prefix**
 
 .. sourcecode:: python
 
-    pairs = yield client.get(b'/cf/foo0', prefix=True)
+    pairs = yield client.get(b'/cf/foo', prefix=True)
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
-Watch keys for change events
+**Watch** keys for changes
 
 .. sourcecode:: python
 
@@ -94,7 +112,7 @@ Watch keys for change events
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on given key prefixes
-    d = client.watch([b'/cf/', b'/foo/'], on_watch)
+    d = client.watch([b'/cf/foo'], on_watch)
 
     # watch for 10 seconds and then stop watching
     print('watching ..')
