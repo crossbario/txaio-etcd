@@ -62,8 +62,9 @@ def main(reactor):
 
     # iterate over key range (maybe an async iter in the future?)
     pairs = yield client.get(b'/cf/foo01', b'/cf/foo05')
-    for key, value in pairs.items():
-        print('key={}: {}'.format(key, value))
+    print(pairs)
+    #for key, value in pairs.items():
+    #    print('key={}: {}'.format(key, value))
 
     # iterate over keys with given prefix
     pairs = yield client.get(b'/cf/foo0', prefix=True)
