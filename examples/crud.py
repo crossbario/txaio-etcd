@@ -38,39 +38,42 @@ def main(reactor):
     for i in range(10):
         etcd.set('mykey{}'.format(i).encode(), b'hello')
 
-#    # get by key
-#    value = yield etcd.get(b'mykey1')
-#    print('value={}'.format(value))
-#
-#    # get by key, providing default value if not found
-#    value = yield etcd.get(b'xyz', None)
-#    print('value={}'.format(value))
-#
-#    # get by key and catch index error
-#    try:
-#        value = yield etcd.get(b'xyz')
-#    except IndexError:
-#        print('no such key')
-#    else:
-#        print('value={}'.format(value))
+    # get by key
+    value = yield etcd.get(b'mykey1')
+    print('value={}'.format(value))
 
-    #
-    deleted = yield etcd.delete(b'mykey3', return_previous=True)
-    print(deleted)
+    # get by key, providing default value if not found
+    value = yield etcd.get(b'xyz', None)
+    print('value={}'.format(value))
 
-    deleted = yield etcd.delete(KeySet(b'mykey2', b'mykey7'), return_previous=True)
-    print(deleted)
+    # get by key and catch index error
+    try:
+        value = yield etcd.get(b'xyz')
+    except IndexError:
+        print('no such key')
+    else:
+        print('value={}'.format(value))
 
     # iterate over keys in range
-    pairs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
-    for key, value in pairs:
-        print('key={}: {}'.format(key, value))
+    kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
+    for kv in kvs:
+        print(kv)
 
     # iterate over keys with given prefix
-    pairs = yield etcd.get(KeySet(b'mykey', prefix=True))
-    for key, value in pairs:
-        print('key={}: {}'.format(key, value))
+    kvs = yield etcd.get(KeySet(b'mykey', prefix=True))
+    for kv in kvs:
+        print(kv)
 
+    # delete a single key
+    yield etcd.delete(b'mykey0')
+
+    # delete a key range
+    deleted = yield etcd.delete(KeySet(b'mykey2', b'mykey7'))
+    print('deleted {} key-value pairs'.format(deleted.deleted))
+
+    # delete a key set defined by prefix and return deleted key-value pairs
+    deleted = yield etcd.delete(KeySet(b'mykey', prefix=True), return_previous=True)
+    print(deleted)
 
 
 if __name__ == '__main__':

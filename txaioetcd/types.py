@@ -33,7 +33,7 @@ import six
 
 __all__ = (
     'KeySet',
-    'Value',
+    'KeyValue',
     'Header',
     'Status',
     'Deleted',
@@ -92,9 +92,9 @@ class KeySet(object):
             self.type = self.SINGLE
 
 
-class Value(object):
+class KeyValue(object):
     """
-    An etcd value (stored for a key).
+    An etcd key-value.
 
     .. code-block:: json
 
@@ -107,10 +107,12 @@ class Value(object):
         }
     """
 
-    def __init__(self, value, version=None, create_revision=None, mod_revision=None):
+    def __init__(self, key, value, version=None, create_revision=None, mod_revision=None):
         """
 
-        :param value: The actual value.
+        :param key: The key.
+        :type key: bytes
+        :param value: The value.
         :type value: bytes
         :param version:
         :type version:
@@ -119,6 +121,7 @@ class Value(object):
         :param mod_revision:
         :type mod_revision
         """
+        self.key = key
         self.value = value
         self.version = version
         self.create_revision = create_revision
@@ -126,14 +129,15 @@ class Value(object):
 
     @staticmethod
     def parse(obj):
+        key = binascii.a2b_base64(obj[u'key'])
         value = binascii.a2b_base64(obj[u'value'])
         version = int(obj[u'version']) if u'version' in obj else None
         create_revision = int(obj[u'create_revision']) if u'create_revision' in obj else None
         mod_revision = int(obj[u'mod_revision']) if u'mod_revision' in obj else None
-        return Value(value, version, create_revision, mod_revision)
+        return KeyValue(key, value, version, create_revision, mod_revision)
 
     def __str__(self):
-        return u'Value({}, version={}, create_revision={}, mod_revision{})'.format(self.value, self.version, self.create_revision, self.mod_revision)
+        return u'KeyValue({}, version={}, create_revision={}, mod_revision{})'.format(self.key, self.value, self.version, self.create_revision, self.mod_revision)
 
 
 class Header(object):
@@ -264,7 +268,7 @@ class Deleted(object):
         if u'prev_kvs' in obj:
             previous = []
             for kv in obj[u'prev_kvs']:
-                previous.append(Value.parse(kv))
+                previous.append(KeyValue.parse(kv))
         else:
             previous = None
         return Deleted(deleted, header, previous)

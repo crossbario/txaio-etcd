@@ -31,13 +31,13 @@ from txaio._version import __version__
 version = __version__
 
 from txaioetcd.client import Client
-from txaioetcd.types import KeySet, Value, Header, Status, Deleted
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted
 
 __all__ = (
     '__version__',
     'Client',
     'KeySet',
-    'Value',
+    'KeyValue',
     'Header',
     'Status',
     'Deleted'

@@ -43,7 +43,7 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import KeySet, Value, Header, Status, Deleted
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted
 
 __all__ = (
     'Client',
@@ -143,17 +143,9 @@ class _StreamingReceiver(protocol.Protocol):
                 else:
                     for evt in obj[u'result'].get(u'events', []):
                         if u'kv' in evt:
-                            d = evt[u'kv']
-
-                            key = binascii.a2b_base64(d[u'key'])
-                            value = binascii.a2b_base64(d[u'value'])
-
-                            version = d[u'version']
-                            create_revision = d[u'create_revision']
-                            mod_revision = d[u'mod_revision']
-
+                            kv = KeyValue.parse(evt[u'kv'])
                             try:
-                                self._cb(key, Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision))
+                                self._cb(kv)
                             except Exception as e:
                                 self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(self._cb, e))
 
@@ -429,22 +421,11 @@ class Client(object):
                 returnValue([])
         else:
             if key.type == KeySet.SINGLE:
-                kv = obj[u'kvs'][0]
-                value = binascii.a2b_base64(kv[u'value'])
-                mod_revision = int(kv[u'mod_revision'])
-                create_revision = int(kv[u'create_revision'])
-                version = int(kv[u'version'])
-                value = Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision)
-                returnValue(value)
+                returnValue(KeyValue.parse(obj[u'kvs'][0]))
             else:
                 values = []
                 for kv in obj[u'kvs']:
-                    key = binascii.a2b_base64(kv[u'key'])
-                    value = binascii.a2b_base64(kv[u'value'])
-                    mod_revision = int(kv[u'mod_revision'])
-                    create_revision = int(kv[u'create_revision'])
-                    version = int(kv[u'version'])
-                    values.append((key, Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision)))
+                    values.append(KeyValue.parse(kv))
                 returnValue(values)
 
     def watch(self, prefixes, on_watch, start_revision=None):
