@@ -28,7 +28,7 @@ from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks
 
 import txaio
-from txaioetcd import Client
+from txaioetcd import Client, KeySet
 
 
 @inlineCallbacks
@@ -40,17 +40,20 @@ def main(reactor):
     status = yield etcd.status()
     print(status)
 
-    # our callback that will be invoked for every change event
-    def on_watch(kv):
-        print('watch callback fired: {}'.format(kv))
+    # callback invoked for every change
+    def on_change(kv):
+        print('on_change: {}'.format(kv))
 
-    # start watching on given key prefixes
-    d = etcd.watch([b'mykey'], on_watch)
+    # start watching on given keys or key sets
+    # when the key sets overlap, the callback might get called multiple
+    # times, once for each key set matching an event
+    keys = [KeySet(b'mykey2', b'mykey5'), KeySet(b'mykey', prefix=True)]
+    d = etcd.watch(keys, on_change)
     print('watching ..')
 
-    # sleep for n seconds ..
-    yield txaio.sleep(10)
-    yield d.cancel()
+    # stop after 60 seconds
+    yield txaio.sleep(60)
+    d.cancel()
 
 
 if __name__ == '__main__':

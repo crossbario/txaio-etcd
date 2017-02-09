@@ -43,11 +43,11 @@ def main(reactor):
 
     # set values on keys
     for i in range(10):
-        yield etcd.set('mykey{}'.format(i).encode(), b'hello')
+        yield etcd.set('mykey{}'.format(i).encode(), os.urandom(8))
 
     # get value by key
     kv = yield etcd.get(b'mykey1')
-    print('key={}: value={}'.format(kv.key, kv.value))
+    print('kv: {}'.format(kv))
 
     # get value by key, providing default value if not found
     kv = yield etcd.get(b'xyz', None)

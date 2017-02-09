@@ -250,14 +250,14 @@ Watching keys
 
     # callback invoked for every change
     def on_change(key, value):
-        print('watch callback fired for key {}: {}'.format(key, value))
+        print('on_change: {}'.format(kv))
 
     # start watching on set of keys with given prefix
     d = etcd.watch([KeySet(b'mykey', prefix=True)], on_change)
     print('watching ..')
 
-    # stop after 10 seconds
-    yield sleep(10)
+    # stop after 20 seconds
+    yield sleep(20)
     d.cancel()
 
 

@@ -449,24 +449,27 @@ class Client(object):
                     values.append(KeyValue.parse(kv))
                 returnValue(values)
 
-    def watch(self, prefixes, on_watch, start_revision=None):
+    def watch(self, keys, on_watch, start_revision=None):
         """
-        Watch one or more key prefixes and invoke a callback.
+        Watch one or more keys or key sets and invoke a callback.
 
-        Watch watches for events happening or that have happened. The entire event
-        history can be watched starting from the last compaction revision.
+        Watch watches for events happening or that have happened.
+        The entire event history can be watched starting from the
+        last compaction revision.
 
         URL:     /v3alpha/watch
 
-        :param prefixes: The prefixes to watch.
-        :type prefixes: list of bytes
-        :param on_watch: The callback to invoke upon receiving a watch event.
+        :param keys: Watch these keys / key sets.
+        :type keys: list of bytes or KeySets
+        :param on_watch: The callback to invoke upon receiving
+            a watch event.
         :type on_watch: callable
-        :param start_revision: start_revision is an optional revision to watch
-            from (inclusive). No start_revision is \"now\".
+        :param start_revision: start_revision is an optional
+            revision to watch from (inclusive). No start_revision
+            is \"now\".
         :type start_revision: int
         """
-        d = self._start_watching(prefixes, on_watch, start_revision)
+        d = self._start_watching(keys, on_watch, start_revision)
 
         def on_err(err):
             if isinstance(err.value, CancelledError):
@@ -479,18 +482,33 @@ class Client(object):
 
         return d
 
-    def _start_watching(self, prefixes, on_watch, start_revision):
+    def _start_watching(self, keys, on_watch, start_revision):
         data = []
         headers = dict()
         url = u'{}/v3alpha/watch'.format(self._url).encode()
 
         # create watches for all key prefixes
-        for key in prefixes:
-            range_end = _increment_last_byte(key)
+        for key in keys:
+            if type(key) == six.binary_type:
+                key = KeySet(key)
+            elif isinstance(key, KeySet):
+                pass
+            else:
+                raise TypeError('key must be binary string or KeySet, not {}'.format(type(key)))
+
+            if key.type == KeySet.SINGLE:
+                range_end = None
+            elif key.type == KeySet.PREFIX:
+                range_end = _increment_last_byte(key.key)
+            elif key.type == KeySet.RANGE:
+                range_end = key.range_end
+            else:
+                raise Exception('logic error')
+
             obj = {
                 'create_request': {
                     u'start_revision': start_revision,
-                    u'key': binascii.b2a_base64(key).decode(),
+                    u'key': binascii.b2a_base64(key.key).decode(),
 
                     # range_end is the end of the range [key, range_end) to watch.
                     # If range_end is not given,\nonly the key argument is watched.
@@ -498,7 +516,6 @@ class Client(object):
                     # to the key argument are watched. If the range_end is one bit
                     # larger than the given key,\nthen all keys with the prefix (the
                     # given key) will be watched.
-                    u'range_end': binascii.b2a_base64(range_end).decode(),
 
                     # progress_notify is set so that the etcd server will periodically
                     # send a WatchResponse with\nno events to the new watcher if there
@@ -509,6 +526,9 @@ class Client(object):
                     u'progress_notify': True,
                 }
             }
+            if range_end:
+                obj[u'create_request'][u'range_end'] = binascii.b2a_base64(range_end).decode()
+
             data.append(json.dumps(obj).encode('utf8'))
 
         data = b'\n'.join(data)
