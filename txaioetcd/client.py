@@ -43,7 +43,7 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import Value, Header, Status, Deleted
+from txaioetcd.types import KeySet, Value, Header, Status, Deleted
 
 __all__ = (
     'Client',
@@ -54,7 +54,8 @@ def _increment_last_byte(byte_string):
     """
     Increment a byte string by 1 - this is used for etcd prefix gets/watches.
 
-    FIXME: This is fun is doing it wrong when the last octet equals 0xFF.
+    FIXME: This function is doing it wrong when the last octet equals 0xFF.
+    FIXME: This function is doing it wrong when the byte_string is of length 0
     """
     s = bytearray(byte_string)
     s[-1] = s[-1] + 1
@@ -167,6 +168,10 @@ class _StreamingReceiver(protocol.Protocol):
             self._done = None
 
 
+class _None(object):
+    pass
+
+
 class Client(object):
     """
     etcd client that talks to the gRPC HTTP gateway endpoint of etcd v3.
@@ -206,6 +211,7 @@ class Client(object):
             raise TypeError('url must be of type unicode, was {}'.format(type(url)))
         self._url = url
         self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
+        self._pool._factory.noisy = False
         self._agent = Agent(reactor, connectTimeout=10, pool=self._pool)
 
     @inlineCallbacks
@@ -229,39 +235,67 @@ class Client(object):
         returnValue(status)
 
     @inlineCallbacks
-    def delete(self, key, range_end=None, prev_kv=False):
+    def delete(self, key, return_previous=None):
         """
         Delete value(s) from etcd.
 
         URL:     /v3alpha/kv/deleterange
 
         :param key: key is the first key to delete in the range.
-        :type key: bytes
-        :param range_end: range_end is the key following the last key to delete
-            for the range [key, range_end).\nIf range_end is not given, the range
-            is defined to contain only the key argument.\nIf range_end is one bit
-            larger than the given key, then the range is all keys with the prefix
-            (the given key).\nIf range_end is '\\0', the range is all keys greater
-            than or equal to the key argument.
-        :key range_end: bytes
-        :param prev_kv: If prev_kv is set, etcd gets the previous key-value pairs
-            before deleting it.\nThe previous key-value pairs will be returned in the
-            delete response.
-        :key prev_kv: bool
+        :type key: bytes or KeySet
+        :param return_previous: If enabled, return the deleted key-value pairs
+        :type return_previous: bool or None
         """
+        if type(key) == six.binary_type:
+            key = KeySet(key)
+        elif isinstance(key, KeySet):
+            pass
+        else:
+            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
+
+        if return_previous is not None and type(return_previous) != bool:
+            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+
+        if key.type == KeySet.SINGLE:
+            range_end = None
+        elif key.type == KeySet.PREFIX:
+            range_end = _increment_last_byte(key.key)
+        elif key.type == KeySet.RANGE:
+            range_end = key.range_end
+        else:
+            raise Exception('logic error')
+
         url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key).decode(),
-            u'range_end': binascii.b2a_base64(range_end).decode() if range_end else None,
-            u'prev_kv': prev_kv
+            u'key': binascii.b2a_base64(key.key).decode(),
         }
+        if range_end:
+            # range_end is the key following the last key to delete
+            # for the range [key, range_end).
+            # If range_end is not given, the range is defined to contain only
+            # the key argument.
+            # If range_end is one bit larger than the given key, then the range
+            # is all keys with the prefix (the given key).
+            # If range_end is '\\0', the range is all keys greater
+            # than or equal to the key argument.
+            #
+            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+
+        if return_previous:
+            # If prev_kv is set, etcd gets the previous key-value pairs
+            # before deleting it.
+            # The previous key-value pairs will be returned in the
+            # delete response.
+            #
+            obj[u'prev_kv'] = True
+
         data = json.dumps(obj).encode('utf8')
 
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
-        res = Deleted.parse(obj)
+        deleted = Deleted.parse(obj)
 
-        returnValue(res)
+        returnValue(deleted)
 
     @inlineCallbacks
     def set(self, key, value, lease=None, prev_kv=None):
@@ -296,7 +330,7 @@ class Client(object):
         returnValue(revision)
 
     @inlineCallbacks
-    def get(self, key, range_end=None, prefix=None):
+    def get(self, key, default=_None):
         """
         Range gets the keys in the range from the key-value store.
 
@@ -356,14 +390,29 @@ class Client(object):
         :param sort_target:
         :type sort_taget:
         """
+        if type(key) == six.binary_type:
+            key = KeySet(key)
+        elif isinstance(key, KeySet):
+            pass
+        else:
+            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
+
+        if key.type == KeySet.SINGLE:
+            range_end = None
+        elif key.type == KeySet.PREFIX:
+            range_end = _increment_last_byte(key.key)
+        elif key.type == KeySet.RANGE:
+            range_end = key.range_end
+        else:
+            raise Exception('logic error')
+
         url = u'{}/v3alpha/kv/range'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key).decode()
+            u'key': binascii.b2a_base64(key.key).decode()
         }
-        if not range_end and prefix is True:
-            range_end = _increment_last_byte(key)
         if range_end:
             obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+
         data = json.dumps(obj).encode('utf8')
 
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
@@ -371,19 +420,15 @@ class Client(object):
 
         count = int(obj.get(u'count', 0))
         if count == 0:
-            raise IndexError('no such key')
-        else:
-            if count > 1:
-                values = {}
-                for kv in obj[u'kvs']:
-                    key = binascii.a2b_base64(kv[u'key'])
-                    value = binascii.a2b_base64(kv[u'value'])
-                    mod_revision = int(kv[u'mod_revision'])
-                    create_revision = int(kv[u'create_revision'])
-                    version = int(kv[u'version'])
-                    values[key] = Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision)
-                returnValue(values)
+            if key.type == KeySet.SINGLE:
+                if default != _None:
+                    returnValue(default)
+                else:
+                    raise IndexError('no such key')
             else:
+                returnValue([])
+        else:
+            if key.type == KeySet.SINGLE:
                 kv = obj[u'kvs'][0]
                 value = binascii.a2b_base64(kv[u'value'])
                 mod_revision = int(kv[u'mod_revision'])
@@ -391,6 +436,16 @@ class Client(object):
                 version = int(kv[u'version'])
                 value = Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision)
                 returnValue(value)
+            else:
+                values = []
+                for kv in obj[u'kvs']:
+                    key = binascii.a2b_base64(kv[u'key'])
+                    value = binascii.a2b_base64(kv[u'value'])
+                    mod_revision = int(kv[u'mod_revision'])
+                    create_revision = int(kv[u'create_revision'])
+                    version = int(kv[u'version'])
+                    values.append((key, Value(value, version=version, create_revision=create_revision, mod_revision=mod_revision)))
+                returnValue(values)
 
     def watch(self, prefixes, on_watch, start_revision=None):
         """

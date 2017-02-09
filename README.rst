@@ -203,24 +203,20 @@ or providing a default value
     value = yield etcd.get(b'mykey', None)
     print('value={}'.format(value))
 
-.. _get_range:
-
 **Iterate** over key **range**
 
 .. sourcecode:: python
 
     pairs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
-    for key, value in pairs.items():
+    for key, value in pairs:
         print('key={}: {}'.format(key, value))
-
-.. _get_prefix:
 
 **Iterate** over keys with given **prefix**
 
 .. sourcecode:: python
 
     pairs = yield etcd.get(KeySet(b'mykey', prefix=True))
-    for key, value in pairs.items():
+    for key, value in pairs:
         print('key={}: {}'.format(key, value))
 
 

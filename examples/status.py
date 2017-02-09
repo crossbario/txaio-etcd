@@ -24,21 +24,22 @@
 #
 ###############################################################################
 
-from __future__ import absolute_import
+from twisted.internet.task import react
+from twisted.internet.defer import inlineCallbacks
+from txaioetcd import Client
+import txaio
 
-from txaio._version import __version__
 
-version = __version__
+@inlineCallbacks
+def main(reactor):
+    # create an etcd client
+    etcd = Client(reactor, u'http://localhost:2379')
 
-from txaioetcd.client import Client
-from txaioetcd.types import KeySet, Value, Header, Status, Deleted
+    # retrieve etcd cluster status
+    status = yield etcd.status()
+    print(status)
 
-__all__ = (
-    '__version__',
-    'Client',
-    'KeySet',
-    'Value',
-    'Header',
-    'Status',
-    'Deleted'
-)
+
+if __name__ == '__main__':
+    txaio.start_logging(level='info')
+    react(main)

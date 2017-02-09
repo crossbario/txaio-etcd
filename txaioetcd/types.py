@@ -26,7 +26,13 @@
 
 from __future__ import absolute_import
 
+import binascii
+
+import six
+
+
 __all__ = (
+    'KeySet',
     'Value',
     'Header',
     'Status',
@@ -34,9 +40,71 @@ __all__ = (
 )
 
 
+class KeySet(object):
+    """
+    Represents a set of etcd keys. Either a single key, a key range or
+    all keys with a given prefix.
+    """
+
+    SINGLE = u'single'
+    """
+    Key set is a single key - hence the set is degenarate.
+    """
+
+    RANGE = u'range'
+    """
+    Key set is a range of keys.
+    """
+
+    PREFIX = u'prefix'
+    """
+    Key set is determined by prefix (all keys having the same given prefix).
+    """
+
+    def __init__(self, key, range_end=None, prefix=None):
+        """
+
+        :param key: The key range start or the key prefix.
+        :type key: bytes
+        :param range_end: The key range end
+        :type range_end: bytes or None
+        :param prefix: If enabled, the key set is determined by prefix.
+        :type prefix: bool or None
+        """
+        if type(key) != six.binary_type:
+            raise TypeError('key must be bytes type, not {}'.format(type(key)))
+        if range_end is not None and type(range_end) != six.binary_type:
+            raise TypeError('range_end must be bytes type, not {}'.format(type(range_end)))
+        if prefix is not None and type(prefix) != bool:
+            raise TypeError('prefix must be bool type, not {}'.format(type(prefix)))
+        if prefix and range_end:
+            raise TypeError('either range_end or prefix can be set, but not both')
+
+        self.key = key
+        self.range_end = range_end
+        self.prefix = prefix
+
+        if prefix:
+            self.type = self.PREFIX
+        elif range_end:
+            self.type = self.RANGE
+        else:
+            self.type = self.SINGLE
+
+
 class Value(object):
     """
     An etcd value (stored for a key).
+
+    .. code-block:: json
+
+        {
+            'key': 'bXlrZXkz',
+            'value': 'd29hOyk=',
+            'version': '1',
+            'create_revision': '357',
+            'mod_revision': '357'
+        }
     """
 
     def __init__(self, value, version=None, create_revision=None, mod_revision=None):
@@ -56,8 +124,16 @@ class Value(object):
         self.create_revision = create_revision
         self.mod_revision = mod_revision
 
+    @staticmethod
+    def parse(obj):
+        value = binascii.a2b_base64(obj[u'value'])
+        version = int(obj[u'version']) if u'version' in obj else None
+        create_revision = int(obj[u'create_revision']) if u'create_revision' in obj else None
+        mod_revision = int(obj[u'mod_revision']) if u'mod_revision' in obj else None
+        return Value(value, version, create_revision, mod_revision)
+
     def __str__(self):
-        return 'Value({}, version={}, create_revision={}, mod_revision{})'.format(self.value, self.version, self.create_revision, self.mod_revision)
+        return u'Value({}, version={}, create_revision={}, mod_revision{})'.format(self.value, self.version, self.create_revision, self.mod_revision)
 
 
 class Header(object):
@@ -82,10 +158,10 @@ class Header(object):
 
     @staticmethod
     def parse(obj):
-        raft_term = int(obj['raft_term']) if 'raft_term' in obj else None
-        revision = int(obj['revision']) if 'revision' in obj else None
-        cluster_id = int(obj['cluster_id']) if 'cluster_id' in obj else None
-        member_id = int(obj['member_id']) if 'member_id' in obj else None
+        raft_term = int(obj[u'raft_term']) if u'raft_term' in obj else None
+        revision = int(obj[u'revision']) if u'revision' in obj else None
+        cluster_id = int(obj[u'cluster_id']) if u'cluster_id' in obj else None
+        member_id = int(obj[u'member_id']) if u'member_id' in obj else None
         return Header(raft_term, revision, cluster_id, member_id)
 
     def __str__(self):
@@ -123,12 +199,12 @@ class Status(object):
 
     @staticmethod
     def parse(obj):
-        version = obj['version'] if 'version' in obj else None
-        dbSize = int(obj['dbSize']) if 'dbSize' in obj else None
-        leader = int(obj['leader']) if 'leader' in obj else None
-        header = Header.parse(obj['header']) if 'header' in obj else None
-        raftTerm = int(obj['raftTerm']) if 'raftTerm' in obj else None
-        raftIndex = int(obj['raftIndex']) if 'raftIndex' in obj else None
+        version = obj[u'version'] if u'version' in obj else None
+        dbSize = int(obj[u'dbSize']) if u'dbSize' in obj else None
+        leader = int(obj[u'leader']) if u'leader' in obj else None
+        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        raftTerm = int(obj[u'raftTerm']) if u'raftTerm' in obj else None
+        raftIndex = int(obj[u'raftIndex']) if u'raftIndex' in obj else None
         return Status(version, dbSize, leader, header, raftTerm, raftIndex)
 
     def __str__(self):
@@ -151,16 +227,48 @@ class Deleted(object):
                 u'member_id': u'17323375927490080838'
             }
         }
+
+    or
+
+    .. code-block:: json
+
+        {
+            'deleted': '1',
+            'header':
+            {
+                'cluster_id': '15378991040070777582',
+                'member_id': '4884146582048902091',
+                'raft_term': '2',
+                'revision': '362'
+            },
+            'prev_kvs': [
+                {
+                    'create_revision': '357',
+                    'key': 'bXlrZXkz',
+                    'mod_revision': '357',
+                    'value': 'd29hOyk=',
+                    'version': '1'
+                }
+            ]
+        }
     """
-    def __init__(self, deleted, header):
+    def __init__(self, deleted, header, previous=None):
         self.deleted = deleted
         self.header = header
+        self.previous = previous
 
     @staticmethod
     def parse(obj):
-        deleted = int(obj['deleted']) if 'deleted' in obj else None
-        header = Header.parse(obj['header']) if 'header' in obj else None
-        return Deleted(deleted, header)
+        deleted = int(obj[u'deleted']) if u'deleted' in obj else None
+        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        if u'prev_kvs' in obj:
+            previous = []
+            for kv in obj[u'prev_kvs']:
+                previous.append(Value.parse(kv))
+        else:
+            previous = None
+        return Deleted(deleted, header, previous)
 
     def __str__(self):
-        return u'Deleted(deleted={}, header={})'.format(self.deleted, self.header)
+        previous_str = u'[' + u', '.join(str(value) for value in self.previous) + u']' if self.previous else None
+        return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, previous_str)

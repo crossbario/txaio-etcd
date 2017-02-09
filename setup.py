@@ -34,16 +34,7 @@ with open('README.rst') as f:
     docstr = f.read()
 
 extras_require_dev = [
-    'pytest>=2.6.4',                    # MIT
-    'pytest-cov>=1.8.1',                # MIT
-    'pep8>=1.6.2',                      # MIT
-    'sphinx>=1.2.3',                    # BSD
-    'pyenchant>=1.6.6',                 # LGPL
-    'sphinxcontrib-spelling>=2.1.2',    # BSD
-    'sphinx_rtd_theme>=0.1.9',          # BSD
-    'tox>=2.1.1',                       # MIT
-    'mock==1.3.0',                      # BSD
-    'twine>=1.6.5',                     # Apache 2.0
+    'twine',                            # Apache 2.0
 ]
 
 setup(
@@ -55,10 +46,10 @@ setup(
     url='https://github.com/crossbario/txaio-etcd',
     platforms=('Any'),
     install_requires=[
-        'six',                          # MIT
-        'zope.interface>=3.6',          # Zope Public License
-        'twisted>=12.1.0',              # MIT
-        'txaio',                        # MIT
+        'six>=1.10.0',                  # MIT
+        'twisted>=16.6.0',              # MIT
+        'treq>=16.12.0',                # MIT
+        'txaio>=2.6.1',                 # MIT
     ],
     extras_require={
         'dev': extras_require_dev,
