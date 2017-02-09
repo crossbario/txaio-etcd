@@ -110,7 +110,7 @@ Setting keys
 .. sourcecode:: python
 
     for i in range(10):
-        etcd.set('/foo{}'.format(i).encode(), b'woa;)')
+        etcd.set('mykey{}'.format(i).encode(), b'woa;)')
 
 Note that both keys and values in etcd3 are arbitrary byte strings.
 
@@ -125,7 +125,7 @@ Getting keys
 .. sourcecode:: python
 
     try:
-        value = yield etcd.get(b'/foo')
+        value = yield etcd.get(b'mykey')
     except IndexError:
         print('no such key')
     else:
@@ -135,7 +135,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    value = yield etcd.get(b'/foo', None)
+    value = yield etcd.get(b'mykey', None)
     print('value={}'.format(value))
 
 .. _get_range:
@@ -144,7 +144,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield etcd.get(KeySet(b'/foo1', b'/foo5'))
+    pairs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -154,7 +154,7 @@ or providing a default value
 
 .. sourcecode:: python
 
-    pairs = yield etcd.get(KeySet(b'/foo', prefix=True))
+    pairs = yield etcd.get(KeySet(b'mykey', prefix=True))
     for key, value in pairs.items():
         print('key={}: {}'.format(key, value))
 
@@ -166,19 +166,19 @@ Deleting keys
 
 .. sourcecode:: python
 
-    etcd.delete(b'/foo3')
+    etcd.delete(b'mykey3')
 
 **Delete** set of keys in given range
 
 .. sourcecode:: python
 
-    etcd.delete(KeySet(b'/foo3', b'/foo7'))
+    etcd.delete(KeySet(b'mykey3', b'mykey7'))
 
 **Delete** set of keys with given prefix and **return** previous key-value pairs
 
 .. sourcecode:: python
 
-    deleted = yield etcd.delete(KeySet(b'/foo3'), return_previous=True)
+    deleted = yield etcd.delete(KeySet(b'mykey3'), return_previous=True)
     print('deleted key-value pairs: {}'.format(deleted))
 
 
@@ -194,7 +194,7 @@ Watching keys
         print('watch callback fired for key {}: {}'.format(key, value))
 
     # start watching on set of keys with given prefix
-    d = etcd.watch([KeySet(b'/foo', prefix=True)], on_change)
+    d = etcd.watch([KeySet(b'mykey', prefix=True)], on_change)
     print('watching ..')
 
     # stop after 10 seconds
@@ -209,9 +209,10 @@ Create or wait to acquire a named lock
 
 .. sourcecode:: python
 
-    lock = yield etcd.lock(b'my-resource')
+    lock = yield etcd.lock(b'mylock')
 
     # now do something on the exclusively locked resource
+    # or whatever the lock stands for or is associated with
 
     lock.release()
 
@@ -221,7 +222,7 @@ Create or wait to acquire, but with a timeout
 .. sourcecode:: python
 
     try:
-        lock = yield etcd.lock(b'my-resource', timeout=10)
+        lock = yield etcd.lock(b'mylock', timeout=10)
     except Timeout:
         print('could not acquire lock: timeout')
     else:
