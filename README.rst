@@ -5,21 +5,21 @@ txaioetcd - etcd for Twisted
 
 **txaioetcd** currently supports these etcd3 basic
 
-- set and get values by key
-- arbitrary byte strings for keys and values
-- get values by range or prefix
-- delete value (by single key, range and prefix)
+- [x] arbitrary byte strings for keys and values
+- [x] set and get values by key
+- [x] get values by range or prefix
+- [x] delete value (by single key, range and prefix)
 
 and advanced features
 
-- watch key sets with asynchronous callback
-- create, refresh and delete leases
-- submit transactions
+- [ ] watch key sets with asynchronous callback
+- [ ] create, refresh and delete leases
+- [ ] submit transactions
 
 **txaioetcd** also provides abstractions on top of the etcd3 transaction primitive:
 
-- global locks and sequences
-- transactional, multi-consumer-producer queues
+- [ ] global locks and sequences
+- [ ] transactional, multi-consumer-producer queues
 
 
 Requirements
