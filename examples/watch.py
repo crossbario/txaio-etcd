@@ -40,6 +40,18 @@ def main(reactor):
     status = yield etcd.status()
     print(status)
 
+    # our callback that will be invoked for every change event
+    def on_watch(kv):
+        print('watch callback fired: {}'.format(kv))
+
+    # start watching on given key prefixes
+    d = etcd.watch([b'mykey'], on_watch)
+    print('watching ..')
+
+    # sleep for n seconds ..
+    yield txaio.sleep(10)
+    yield d.cancel()
+
 
 if __name__ == '__main__':
     txaio.start_logging(level='info')

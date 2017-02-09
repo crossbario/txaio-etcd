@@ -37,11 +37,10 @@ from txaioetcd import Client, KeySet
 def main(reactor):
     etcd = Client(reactor, u'http://localhost:2379')
 
-    res = yield etcd.set(b'foo', os.urandom(8), return_previous=True)
-    print(res)
+    # set key-value, return revision including previous value
+    revision = yield etcd.set(b'foo', os.urandom(8), return_previous=True)
+    print(revision)
 
-
-def part(reactor):
     # set values on keys
     for i in range(10):
         yield etcd.set('mykey{}'.format(i).encode(), b'hello')
@@ -56,11 +55,12 @@ def part(reactor):
 
     # get by key and catch index error
     try:
-        value = yield etcd.get(b'xyz')
+        for key in [b'mykey0', b'xyz']:
+            value = yield etcd.get(key)
     except IndexError:
-        print('no such key')
+        print('no such key: {}'.format(key))
     else:
-        print('value={}'.format(value))
+        print(value)
 
     # iterate over keys in range
     kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))

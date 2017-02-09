@@ -283,7 +283,7 @@ class Deleted(object):
 
     def __str__(self):
         previous_str = u'[' + u', '.join(str(value) for value in self.previous) + u']' if self.previous else None
-        return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, self.previous_str)
+        return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, previous_str)
 
 
 class Revision(object):

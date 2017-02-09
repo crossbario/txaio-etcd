@@ -3,14 +3,14 @@ txaioetcd - etcd for Twisted
 
 `etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn. Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
 
-**txaioetcd** currently supports these etcd3 basic
+**txaioetcd** currently supports these etcd3 basic features
 
 - [x] arbitrary byte strings for keys and values
 - [x] set and get values by key
 - [x] get values by range or prefix
 - [x] delete value (by single key, range and prefix)
 
-and advanced features
+and the following advanced features
 
 - [ ] watch key sets with asynchronous callback
 - [ ] create, refresh and delete leases
@@ -192,9 +192,9 @@ Getting keys
     try:
         value = yield etcd.get(b'mykey')
     except IndexError:
-        print('no such key')
+        print('key not found')
     else:
-        print(value)
+        print('value: {}'.format(value))
 
 or providing a default value
 
@@ -361,6 +361,16 @@ Asynchronous Context Managers
 
 .. sourcecode:: python
 
-    with etcd.lock('doot-machine') as lock:
+    async with etcd.lock(b'mylock') as lock:
         # whatever the way this block finishes,
         # the lock will be unlocked
+
+
+No etcd admin API support
+.........................
+
+etcd has a number of administrative procedures as part of the API like list, add, remove etc cluster members and other things.
+
+These API parts of etcd are currently not exposed in txaioetcd - and I am not completely convinced it would be a big use case or even desirable from a security perspective, as it exposes sensitive API at the app level.
+
+But yes, it is missing completely.
