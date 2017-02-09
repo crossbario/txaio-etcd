@@ -23,15 +23,15 @@ spelling:
 	cd docs && sphinx-build -b spelling . _spelling
 
 pep8:
-	pep8 test/*.py txetcd3/*.py
+	pep8 test/*.py txaioetcd/*.py
 
 # This will run pep8, pyflakes and can skip lines that end with # noqa
 flake8:
-	flake8 --max-line-length=119 test/*.py txetcd3/*.py
+	flake8 --max-line-length=119 test/*.py txaioetcd/*.py
 
 # cleanup everything
 clean:
-	rm -rf ./txetcd3.egg-info
+	rm -rf ./txaioetcd.egg-info
 	rm -rf ./build
 	rm -rf ./dist
 	rm -rf ./temp

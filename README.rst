@@ -194,31 +194,29 @@ Getting keys
     except IndexError:
         print('no such key')
     else:
-        print('value={}'.format(value))
+        print(value)
 
 or providing a default value
 
 .. sourcecode:: python
 
     value = yield etcd.get(b'mykey', None)
-    print('value={}'.format(value))
 
 **Iterate** over key **range**
 
 .. sourcecode:: python
 
-    pairs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
-    for key, value in pairs:
-        print('key={}: {}'.format(key, value))
+    kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
+    for kv in kvs:
+        print(kv)
 
 **Iterate** over keys with given **prefix**
 
 .. sourcecode:: python
 
-    pairs = yield etcd.get(KeySet(b'mykey', prefix=True))
-    for key, value in pairs:
-        print('key={}: {}'.format(key, value))
-
+    kvs = yield etcd.get(KeySet(b'mykey', prefix=True))
+    for kv in kvs:
+        print(kv)
 
 Deleting keys
 .............
@@ -319,7 +317,14 @@ Current limitations
 Missing asyncio support
 .......................
 
-The API of txaioetcd was designed not leaking anything from Twisted other than Deferreds. This is in line with the approach that txaio takes. It will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
+The API of txaioetcd was designed not leaking anything from Twisted other than Deferreds. This is similar to and in line with the approach that txaio takes.
+
+The approach will allow us to add an asyncio implementation under the hood without affecting existing application code, but make the library run over either Twisted or asyncio, similar to txaio.
+
+Further, Twisted wants to support the new Python 3.5+ async/await syntax on Twisted Deferreds, and that in turn would make it possible to write applications on top of txaioetcd that work either using native Twisted or asyncio without changing the app code.
+
+Note that this is neither the same as running a Twisted reactor on top of an asyncio loop nor vice versa. The app is still running under Twisted *or* asyncio, but selecting the framework might even be a user settable command line option to the app.
+
 
 Missing native protocol support
 ...............................
@@ -327,6 +332,7 @@ Missing native protocol support
 The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the binary payload is transmitted JSON with string values that Base64 encode the binary values of the etcd3 API.
 
 Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted etcd. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
+
 
 Missing dynamic watches
 .......................

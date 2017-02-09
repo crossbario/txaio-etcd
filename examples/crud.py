@@ -24,27 +24,35 @@
 #
 ###############################################################################
 
+import os
+
 from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks
-from txaioetcd import Client, KeySet
+
 import txaio
+from txaioetcd import Client, KeySet
 
 
 @inlineCallbacks
 def main(reactor):
     etcd = Client(reactor, u'http://localhost:2379')
 
+    res = yield etcd.set(b'foo', os.urandom(8), return_previous=True)
+    print(res)
+
+
+def part(reactor):
     # set values on keys
     for i in range(10):
-        etcd.set('mykey{}'.format(i).encode(), b'hello')
+        yield etcd.set('mykey{}'.format(i).encode(), b'hello')
 
-    # get by key
-    value = yield etcd.get(b'mykey1')
-    print('value={}'.format(value))
+    # get value by key
+    kv = yield etcd.get(b'mykey1')
+    print('key={}: value={}'.format(kv.key, kv.value))
 
-    # get by key, providing default value if not found
-    value = yield etcd.get(b'xyz', None)
-    print('value={}'.format(value))
+    # get value by key, providing default value if not found
+    kv = yield etcd.get(b'xyz', None)
+    print('kv={}'.format(kv))
 
     # get by key and catch index error
     try:

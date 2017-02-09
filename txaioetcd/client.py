@@ -43,7 +43,7 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision
 
 __all__ = (
     'Client',
@@ -290,35 +290,56 @@ class Client(object):
         returnValue(deleted)
 
     @inlineCallbacks
-    def set(self, key, value, lease=None, prev_kv=None):
+    def set(self, key, value, lease=None, return_previous=None):
         """
-        Put puts the given key into the key-value store.
+        Set the value for the key in the key-value store.
 
-        A put request increments the revision of the key-value
-        store and generates one event in the event history.
+        Setting a value on a key increments the revision
+        of the key-value store and generates one event in
+        the event history.
 
         URL:     /v3alpha/kv/put
 
-        :param key: key is the key, in bytes, to put into the key-value store.
+        :param key: key is the key, in bytes, to put into
+            the key-value store.
         :type key: bytes
-        :param lease: lease is the lease ID to associate with the key in the key-value store. A lease\nvalue of 0 indicates no lease.
+        :param lease: lease is the lease ID to associate
+            with the key in the key-value store. A lease\nvalue of 0 indicates no lease.
         :type lease: int
-        :param prev_kv: If prev_kv is set, etcd gets the previous key-value pair before changing it.\nThe previous key-value pair will be returned in the put response.
+        :param prev_kv: If prev_kv is set, etcd gets the previous
+            key-value pair before changing it.\nThe previous key-value pair will be returned in the put response.
         :type prev_kv: bool
-        :param value: value is the value, in bytes, to associate with the key in the key-value store.
+        :param value: value is the value, in bytes, to
+            associate with the key in the key-value store.
         :key value: bytes
+
+        :param return_previous: If set, return the previous key-value.
+        :type return_previous: bool or None
         """
+        if type(key) != six.binary_type:
+            raise TypeError('key must be bytes, not {}'.format(type(key)))
+
+        if type(value) != six.binary_type:
+            raise TypeError('value must be bytes, not {}'.format(type(value)))
+
+        if return_previous is not None and type(return_previous) != bool:
+            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+
         url = u'{}/v3alpha/kv/put'.format(self._url).encode()
         obj = {
             u'key': binascii.b2a_base64(key).decode(),
             u'value': binascii.b2a_base64(value).decode()
         }
+        if return_previous:
+            obj[u'prev_kv'] = True
+
         data = json.dumps(obj).encode('utf8')
 
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        revision = obj[u'header'][u'revision']
+        revision = Revision.parse(obj)
+
         returnValue(revision)
 
     @inlineCallbacks

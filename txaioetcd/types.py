@@ -37,7 +37,15 @@ __all__ = (
     'Header',
     'Status',
     'Deleted',
+    'Revision',
 )
+
+
+def _maybe_text(data):
+    try:
+        return u'{}'.format(data)
+    except:
+        return binascii.b2a_hex(data)
 
 
 class KeySet(object):
@@ -137,7 +145,7 @@ class KeyValue(object):
         return KeyValue(key, value, version, create_revision, mod_revision)
 
     def __str__(self):
-        return u'KeyValue({}, version={}, create_revision={}, mod_revision{})'.format(self.key, self.value, self.version, self.create_revision, self.mod_revision)
+        return u'KeyValue(key={}, value={}, version={}, create_revision={}, mod_revision{})'.format(_maybe_text(self.key), _maybe_text(self.value), self.version, self.create_revision, self.mod_revision)
 
 
 class Header(object):
@@ -275,4 +283,60 @@ class Deleted(object):
 
     def __str__(self):
         previous_str = u'[' + u', '.join(str(value) for value in self.previous) + u']' if self.previous else None
-        return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, previous_str)
+        return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, self.previous_str)
+
+
+class Revision(object):
+    """
+    Info from etcd for setting a key.
+
+    .. code-block:: json
+
+        {
+            u'header':
+            {
+                u'raft_term': u'2',
+                u'revision': u'100',
+                u'cluster_id': u'243774308834426361',
+                u'member_id': u'17323375927490080838'
+            }
+        }
+
+    or
+
+    .. code-block:: json
+
+        {
+            u'header':
+            {
+                u'raft_term': u'2',
+                u'revision': u'102',
+                u'cluster_id': u'243774308834426361',
+                u'member_id': u'17323375927490080838'
+            },
+            u'prev_kv':
+            {
+                u'mod_revision': u'101',
+                u'value': u'YmFy',
+                u'create_revision': u'98',
+                u'version': u'4'
+                ,u'key': u'Zm9v'
+            }
+        }
+
+    """
+    def __init__(self, header, previous=None):
+        self.header = header
+        self.previous = previous
+
+    @staticmethod
+    def parse(obj):
+        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        if u'prev_kv' in obj:
+            previous = KeyValue.parse(obj[u'prev_kv'])
+        else:
+            previous = None
+        return Revision(header, previous)
+
+    def __str__(self):
+        return u'Revision(header={}, previous={})'.format(self.header, self.previous)
