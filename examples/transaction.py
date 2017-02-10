@@ -49,13 +49,17 @@ def main(reactor):
 
         txn = Transaction(
             compare=[
+                # compute conjunction of all terms to
+                # determine "success" vs "failure"
                 CompValue(b'test1', '==', b'val1')
             ],
             success=[
+                # if true ("success"), run these ops
                 OpSet(b'test1', b'val2'),
                 OpSet(b'test2', b'success')
             ],
             failure=[
+                # if not true ("failure"), run these ops
                 OpSet(b'test2', b'failure'),
                 OpGet(b'test1')
             ]
@@ -88,9 +92,19 @@ def main(reactor):
     for version in [kv.version, kv.version - 1]:
         txn = Transaction(
             compare=[
+                # value equality comparison
                 CompValue(b'mykey1', '==', kv.value),
+
+                # version, and different comparison operators
                 CompVersion(b'mykey1', '==', version),
+                CompVersion(b'mykey1', '!=', version + 1),
+                CompVersion(b'mykey1', '<', version + 1),
+                CompVersion(b'mykey1', '>', version - 1),
+
+                # created revision comparison
                 CompCreated(b'mykey1', '==', kv.create_revision),
+
+                # modified revision comparison
                 CompModified(b'mykey1', '==', kv.mod_revision),
             ],
             success=[

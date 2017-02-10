@@ -15,13 +15,23 @@ WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definit
 and the following advanced features
 
 - [x] watch key sets with asynchronous callback
-- [ ] submit transactions
+- [x] submit transactions
 - [ ] create, refresh and delete leases
 
 **txaioetcd** also provides abstractions on top of the etcd3 transaction primitive:
 
 - [ ] global locks and sequences
 - [ ] transactional, multi-consumer-producer queues
+
+
+Examples
+--------
+
+1. `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
+2. `Basic Operatings (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
+3. `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
+4. `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
+5. `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
 
 
 Requirements
