@@ -1,6 +1,8 @@
 txaioetcd - etcd for Twisted
 ============================
 
+WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome!
+
 `etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn. Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
 
 **txaioetcd** currently supports these etcd3 basic features
@@ -12,9 +14,9 @@ txaioetcd - etcd for Twisted
 
 and the following advanced features
 
-- [ ] watch key sets with asynchronous callback
-- [ ] create, refresh and delete leases
+- [x] watch key sets with asynchronous callback
 - [ ] submit transactions
+- [ ] create, refresh and delete leases
 
 **txaioetcd** also provides abstractions on top of the etcd3 transaction primitive:
 
@@ -29,7 +31,9 @@ Requirements
 
 The implementation is pure Python code compatible with both **Python 2 and 3**, and runs perfect on **PyPy**.
 
-The library requires **Twisted** (asyncio support could be added with no API break), but other than that only has minimal, Python dependencies.
+The library currently requires **Twisted**, though asyncio support can be added with no API break. Ah, did I mention? PRs are welcome! ;)
+
+But other than the underlying network library, there are only small pure Python dependencies.
 
 
 Installation
@@ -340,6 +344,8 @@ The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the bin
 
 Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted client. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization. The gateway is just way simpler to integrate with as it uses the least common or invasive thing, namely HTTP/REST and long polling. Certainly not the most efficient, that is also true.
 
+But is seems recommended to run a local etcd proxy on each host, and this means we're talking the (ineffcient) HTTP protocol over loopback TCP, and hence it is primarily a question of burning some additional CPU cycles.
+
 
 Missing dynamic watches
 .......................
@@ -365,6 +371,8 @@ Note that a full blown consumer-producer (flow-controller) pattern is probably o
 
 Asynchronous Context Managers
 .............................
+
+This would be a nice and robust idiom to write app code in:
 
 .. sourcecode:: python
 

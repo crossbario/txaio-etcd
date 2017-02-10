@@ -2,13 +2,18 @@
 
 ## Objects
 
+### Transactions
+
 * [ ] etcdserverpbCompare
+* [ ] etcdserverpbRequestOp
+* [ ] etcdserverpbResponseHeader
+* [ ] etcdserverpbResponseOp
+
+### Other
+
 * [ ] etcdserverpbAlarmType
 * [ ] etcdserverpbAlarmMember
 * [ ] etcdserverpbMember
-* [ ] etcdserverpbResponseHeader
-* [ ] etcdserverpbRequestOp
-* [ ] etcdserverpbResponseOp
 
 ## Actions: CRUD
 
