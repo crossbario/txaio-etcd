@@ -50,7 +50,8 @@ __all__ = (
     'Transaction',
     'Error',
     'Failed',
-    'Success'
+    'Success',
+    'Range'
 )
 
 
@@ -766,3 +767,24 @@ class Success(object):
     def __str__(self):
         responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
         return u'Success(header={}, responses={})'.format(self.header, responses)
+
+
+class Range(object):
+
+    def __init__(self, kvs, header, count):
+        self.kvs = kvs
+        self.header = header
+        self.count = count
+
+    @staticmethod
+    def parse(obj):
+        count = obj.get(u'count', None)
+        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        kvs = []
+        for kv in obj.get(u'kvs', []):
+            kvs.append(KeyValue.parse(kv))
+        return Range(kvs, header, count)
+
+    def __str__(self):
+        kvs = u'[' + u', '.join(str(x) for x in self.kvs) + u']'
+        return u'Range(kvs={}, header={}, count={})'.format(kvs, self.header, self.count)

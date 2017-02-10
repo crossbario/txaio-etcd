@@ -40,6 +40,45 @@ def main(reactor):
 
     etcd = Client(reactor, u'http://localhost:2379')
 
+    #
+    # Example 1
+    #
+    for val in [b'val1', b'val2']:
+
+        yield etcd.set(b'test1', val)
+
+        txn = Transaction(
+            compare=[
+                CompValue(b'test1', '==', b'val1')
+            ],
+            success=[
+                OpSet(b'test1', b'val2'),
+                OpSet(b'test2', b'success')
+            ],
+            failure=[
+                OpSet(b'test2', b'failure'),
+                OpGet(b'test1')
+            ]
+        )
+
+        try:
+            result = yield etcd.submit(txn)
+        except Failed as failed:
+            print('transaction FAILED:')
+            for response in failed.responses:
+                print(response)
+        else:
+            print('transaction SUCCESS:')
+            for response in result.responses:
+                print(response)
+
+        for key in [b'test1', b'test2']:
+            value = yield etcd.get(key)
+            print('{}: {}'.format(key, value))
+
+    #
+    # Example 2
+    #
     rev = yield etcd.set(b'mykey1', os.urandom(8))
     print(rev)
 

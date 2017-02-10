@@ -44,7 +44,7 @@ from twisted.web.http_headers import Headers
 import treq
 
 from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, \
-    Revision, _increment_last_byte, Error, Failed, Success
+    Revision, _increment_last_byte, Error, Failed, Success, Range
 
 __all__ = (
     'Client',
@@ -607,12 +607,16 @@ class Client(object):
             if len(r.keys()) != 1:
                 raise Exception('bogus transaction response (multiple response tags in item): {}'.format(obj))
 
-            if u'response_put' in r:
+            first = list(r.keys())[0]
+
+            if first == u'response_put':
                 re = Revision.parse(r[u'response_put'])
-            elif u'response_delete_range' in r:
+            elif first == u'response_delete_range':
                 re = Deleted.parse(r[u'response_delete_range'])
+            elif first == u'response_range':
+                re = Range.parse(r[u'response_range'])
             else:
-                raise Exception('response item "{}" bogus or not implemented'.format(r.keys()[0]))
+                raise Exception('response item "{}" bogus or not implemented'.format(first))
 
             responses.append(re)
 

@@ -271,20 +271,30 @@ Transactions
 
 .. sourcecode:: python
 
-    # transactions
     txn = Transaction(
         compare=[
-            Compare(etcd.transactions.value(b'test') == b'failure'
+            CompValue(b'mykey1', '==', b'val1')
         ],
         success=[
-            etcd.Set(b'test', b'success'),
+            OpSet(b'mykey1', b'val2'),
+            OpSet(b'mykey2', b'success')
         ],
         failure=[
-            etcd.Set(b'test', b'failure'),
+            OpSet(b'mykey2', b'failure'),
+            OpGet(b'mykey1')
         ]
     )
-    result = yield etcd.submit(txn)
-    print(result)
+
+    try:
+        result = yield etcd.submit(txn)
+    except Failed as failed:
+        print('transaction FAILED:')
+        for response in failed.responses:
+            print(response)
+    else:
+        print('transaction SUCCESS:')
+        for response in result.responses:
+            print(response)
 
 
 Leases
