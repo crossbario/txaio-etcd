@@ -148,8 +148,9 @@ Here is an example etcd3 client that retrieves the cluster status
 
     from twisted.internet.task import react
     from twisted.internet.defer import inlineCallbacks
-    from txaioetcd import Client, KeySet
+
     import txaio
+    from txaioetcd import Client, KeySet
 
     @inlineCallbacks
     def main(reactor):
@@ -337,7 +338,7 @@ Missing native protocol support
 
 The implementation talks HTTP/1.1 to the gRPC HTTP gateway of etcd3, and the binary payload is transmitted JSON with string values that Base64 encode the binary values of the etcd3 API.
 
-Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted etcd. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization.
+Likely more effienct would be talk the native protocol of etcd3, which is HTTP/2 and gRPC/protobuf based. The former requires a HTTP/2 Twisted client. The latter requires a pure Python implementation of protobuf messages used and gRPC. So this is definitely some work, and probably premature optimization. The gateway is just way simpler to integrate with as it uses the least common or invasive thing, namely HTTP/REST and long polling. Certainly not the most efficient, that is also true.
 
 
 Missing dynamic watches
@@ -375,8 +376,8 @@ Asynchronous Context Managers
 No etcd admin API support
 .........................
 
-etcd has a number of administrative procedures as part of the API like list, add, remove etc cluster members and other things.
+etcd has a large number of administrative procedures as part of the API like list, add, remove etc cluster members and other things.
 
-These API parts of etcd are currently not exposed in txaioetcd - and I am not completely convinced it would be a big use case or even desirable from a security perspective, as it exposes sensitive API at the app level.
+These API parts of etcd are currently not exposed in txaioetcd - and I am not completely convinced it would necessary given there is `etcdctl` or even desirable from a security perspective, as it exposes sensitive API at the app level.
 
 But yes, it is missing completely.
