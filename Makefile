@@ -2,6 +2,9 @@
 
 default: test
 
+grep_pb_api:
+	grep 'etcdserverpb.*"' docs/rpc.swagger.json | grep -v "ref" | grep -v "title" | uniq | sort | tr -d '"' | tr -d ": {"
+
 test:
 	tox
 

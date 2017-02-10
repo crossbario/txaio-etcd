@@ -249,15 +249,15 @@ Watching keys
 .. sourcecode:: python
 
     # callback invoked for every change
-    def on_change(key, value):
+    def on_change(kv):
         print('on_change: {}'.format(kv))
 
     # start watching on set of keys with given prefix
     d = etcd.watch([KeySet(b'mykey', prefix=True)], on_change)
     print('watching ..')
 
-    # stop after 20 seconds
-    yield sleep(20)
+    # stop after 60 seconds
+    yield txaio.sleep(60)
     d.cancel()
 
 
