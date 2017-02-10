@@ -68,9 +68,9 @@ def _increment_last_byte(byte_string):
 
 def _maybe_text(data):
     try:
-        return u'"{}"'.format(data)
+        return u'{}'.format(data)
     except:
-        return binascii.b2a_hex(data)
+        return binascii.b2a_hex(data).decode()
 
 
 class KeySet(object):
@@ -548,7 +548,7 @@ class CompModified(Comp):
         if type(mod_revision) not in six.integer_types:
             raise TypeError('mod_revision must be an integer type, not {}'.format(type(mod_revision)))
 
-        self.value = value
+        self.mod_revision = mod_revision
 
     def marshal(self):
         obj = Comp.marshal(self)
