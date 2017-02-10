@@ -41,21 +41,28 @@ def main(reactor):
     status = yield etcd.status()
     print(status)
 
+    yield etcd.set(b'foo', b'bar')
+
     txn = Transaction(
         compare=[
-            CompValue(b'foo', '==', b'bar'),
-            CompVersion(b'foo', '==', 23)
+            CompValue(b'foo', '==', b'bars'),
+            #CompVersion(b'foo', '==', 23)
         ],
         success=[
             OpSet(b'foo', b'baz'),
-            OpSet(b'test', b'done'),
+            #OpSet(b'test', b'done'),
         ],
         failure=[
-            OpDel(KeySet(b'foo', prefix=True)),
+            OpSet(b'foo', b'moo'),
+            #OpDel(KeySet(b'foo', prefix=True)),
         ]
     )
 
-    print(txn)
+    #print(txn)
+
+    #from pprint import pprint
+    #obj = txn.marshal()
+    #pprint(obj)
 
     try:
         result = yield etcd.submit(txn)

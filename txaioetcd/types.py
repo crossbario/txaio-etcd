@@ -51,6 +51,18 @@ __all__ = (
 )
 
 
+def _increment_last_byte(byte_string):
+    """
+    Increment a byte string by 1 - this is used for etcd prefix gets/watches.
+
+    FIXME: This function is doing it wrong when the last octet equals 0xFF.
+    FIXME: This function is doing it wrong when the byte_string is of length 0
+    """
+    s = bytearray(byte_string)
+    s[-1] = s[-1] + 1
+    return bytes(s)
+
+
 def _maybe_text(data):
     try:
         return u'"{}"'.format(data)
@@ -108,6 +120,25 @@ class KeySet(object):
             self.type = self.RANGE
         else:
             self.type = self.SINGLE
+
+    def marshal(self):
+        obj = {
+            u'key': binascii.b2a_base64(self.key).decode()
+        }
+
+        if self.type == KeySet.SINGLE:
+            range_end = None
+        elif self.type == KeySet.PREFIX:
+            range_end = _increment_last_byte(self.key)
+        elif self.type == KeySet.RANGE:
+            range_end = self.range_end
+        else:
+            raise Exception('logic error')
+
+        if range_end:
+            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+
+        return obj
 
     def __str__(self):
         return u'KeySet(key={}, range_end={}, prefix={})'.format(_maybe_text(self.key), _maybe_text(self.range_end), self.prefix)
@@ -366,6 +397,9 @@ class Comp(object):
         u'>': u'GREATER',
         u'<': u'LESS',
     }
+    """
+    etcd API: CompareCompareResult
+    """
 
     def __init__(self, key, compare):
         """
@@ -383,6 +417,13 @@ class Comp(object):
 
         self.key = key
         self.compare = compare
+
+    def marshal(self):
+        obj = {
+            u'key': binascii.b2a_base64(self.key).decode(),
+            u'result': Comp.OPERATORS[self.compare]
+        }
+        return obj
 
     def __str__(self):
         return u'Comp(key={}, compare="{}")'.format(_maybe_text(self.key), self.compare)
@@ -410,6 +451,12 @@ class CompValue(Comp):
 
         self.value = value
 
+    def marshal(self):
+        obj = Comp.marshal(self)
+        obj[u'target'] = u'VALUE'  # CompareCompareTarget
+        obj[u'value'] = binascii.b2a_base64(self.value).decode()
+        return obj
+
     def __str__(self):
         return u'CompValue(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, _maybe_text(self.value))
 
@@ -419,25 +466,31 @@ class CompVersion(Comp):
     Represents a comparison against a KV version.
     """
 
-    def __init__(self, key, compare, value):
+    def __init__(self, key, compare, version):
         """
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
         :param compare: The comparison operator to apply.
         :type compare: str
-        :param value: The value to compare to.
-        :type value: int
+        :param version: The value to compare to.
+        :type version: int
         """
         Comp.__init__(self, key, compare)
 
-        if type(value) not in six.integer_types:
-            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+        if type(version) not in six.integer_types:
+            raise TypeError('version must be an integer type, not {}'.format(type(version)))
 
-        self.value = value
+        self.version = version
+
+    def marshal(self):
+        obj = Comp.marshal(self)
+        obj[u'target'] = u'VERSION'  # CompareCompareTarget
+        obj[u'version'] = self.version
+        return obj
 
     def __str__(self):
-        return u'CompVersion(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+        return u'CompVersion(key={}, compare="{}", version={})'.format(_maybe_text(self.key), self.compare, self.version)
 
 
 class CompCreated(Comp):
@@ -445,25 +498,31 @@ class CompCreated(Comp):
     Represents a comparison against a KV create_revision.
     """
 
-    def __init__(self, key, compare, value):
+    def __init__(self, key, compare, create_revision):
         """
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
         :param compare: The comparison operator to apply.
         :type compare: str
-        :param value: The value to compare to.
-        :type value: int
+        :param create_revision: The value to compare to.
+        :type create_revision: int
         """
         Comp.__init__(self, key, compare)
 
-        if type(value) not in six.integer_types:
-            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+        if type(create_revision) not in six.integer_types:
+            raise TypeError('create_revision must be an integer type, not {}'.format(type(create_revision)))
 
-        self.value = value
+        self.create_revision = create_revision
+
+    def marshal(self):
+        obj = Comp.marshal(self)
+        obj[u'target'] = u'CREATE'  # CompareCompareTarget
+        obj[u'create_revision'] = self.create_revision
+        return obj
 
     def __str__(self):
-        return u'CompCreated(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+        return u'CompCreated(key={}, compare="{}", create_revision={})'.format(_maybe_text(self.key), self.compare, self.create_revision)
 
 
 class CompModified(Comp):
@@ -471,25 +530,31 @@ class CompModified(Comp):
     Represents a comparison against a KV mod_revision.
     """
 
-    def __init__(self, key, compare, value):
+    def __init__(self, key, compare, mod_revision):
         """
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
         :param compare: The comparison operator to apply.
         :type compare: str
-        :param value: The value to compare to.
-        :type value: int
+        :param mod_revision: The value to compare to.
+        :type mod_revision: int
         """
         Comp.__init__(self, key, compare)
 
-        if type(value) not in six.integer_types:
-            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+        if type(mod_revision) not in six.integer_types:
+            raise TypeError('mod_revision must be an integer type, not {}'.format(type(mod_revision)))
 
         self.value = value
 
+    def marshal(self):
+        obj = Comp.marshal(self)
+        obj[u'target'] = u'MOD'  # CompareCompareTarget
+        obj[u'mod_revision'] = self.mod_revision
+        return obj
+
     def __str__(self):
-        return u'CompModified(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+        return u'CompModified(key={}, compare="{}", mod_revision={})'.format(_maybe_text(self.key), self.compare, self.mod_revision)
 
 
 class Op(object):
@@ -519,6 +584,12 @@ class OpGet(Op):
         else:
             self.key = KeySet(key)
 
+    def marshal(self):
+        obj = {
+            u'request_range': self.key.marshal()
+        }
+        return obj
+
     def __str__(self):
         return u'OpGet(key={})'.format(self.key)
 
@@ -546,6 +617,15 @@ class OpSet(Op):
         self.key = key
         self.value = value
 
+    def marshal(self):
+        obj = {
+            u'request_put': {
+                u'key': binascii.b2a_base64(self.key).decode(),
+                u'value': binascii.b2a_base64(self.value).decode()
+            }
+        }
+        return obj
+
     def __str__(self):
         return u'OpSet(key={}, value={})'.format(_maybe_text(self.key), _maybe_text(self.value))
 
@@ -570,6 +650,12 @@ class OpDel(Op):
             self.key = key
         else:
             self.key = KeySet(key)
+
+    def marshal(self):
+        obj = {
+            u'request_delete_range': self.key.marshal()
+        }
+        return obj
 
     def __str__(self):
         return u'OpDel(key={})'.format(self.key)
@@ -616,6 +702,22 @@ class Transaction(object):
         self.compare = compare
         self.success = success
         self.failure = failure
+
+    def marshal(self):
+        """
+        Marshal this object into a raw (request or response) message for
+        subsequent serialization to bytes.
+
+        :returns: obj -- The marshalled object.
+        """
+        obj = {}
+        if self.compare:
+            obj[u'compare'] = [o.marshal() for o in self.compare]
+        if self.success:
+            obj[u'success'] = [o.marshal() for o in self.success]
+        if self.failure:
+            obj[u'failure'] = [o.marshal() for o in self.failure]
+        return obj
 
     def __str__(self):
         compare = u'[' + u', '.join(str(x) for x in self.compare) + u']' if self.compare else None

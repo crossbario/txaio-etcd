@@ -43,23 +43,11 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, _increment_last_byte
 
 __all__ = (
     'Client',
 )
-
-
-def _increment_last_byte(byte_string):
-    """
-    Increment a byte string by 1 - this is used for etcd prefix gets/watches.
-
-    FIXME: This function is doing it wrong when the last octet equals 0xFF.
-    FIXME: This function is doing it wrong when the byte_string is of length 0
-    """
-    s = bytearray(byte_string)
-    s[-1] = s[-1] + 1
-    return bytes(s)
 
 
 class _BufferedSender(object):
@@ -555,6 +543,7 @@ class Client(object):
         d.addCallbacks(handle_response, handle_error)
         return d
 
+    @inlineCallbacks
     def submit(self, txn):
         """
         Submit a etcd transaction.
@@ -593,22 +582,21 @@ class Client(object):
         3. A list of database operations called f op. Like t op, but
            executed if guard evaluates to false.
         """
+        self.log.warn('000')
+
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
-        obj = {
-            # compare is a list of predicates representing a conjunction
-            # of terms. If the comparisons succeed, then the success requests
-            # will be processed in order, and the response will contain their
-            # respective responses in order. If the comparisons fail, then
-            # the failure requests will be processed in order, and the
-            # response will contain their respective responses in order.
-            u'compare': None,
+        obj = txn.marshal()
+        data = json.dumps(obj).encode('utf8')
 
-            # success is a list of requests which will be applied when
-            # compare evaluates to true.
-            u'success': None,
+        print('111')
 
-            # failure is a list of requests which will be applied when
-            # compare evaluates to false.
-            u'failure': None,
-        }
-        pass
+        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        obj = yield treq.json_content(response)
+
+        print('222')
+
+        from pprint import pprint
+        pprint(obj)
+        #deleted = Deleted.parse(obj)
+
+        returnValue(obj)
