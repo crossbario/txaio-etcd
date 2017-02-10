@@ -43,7 +43,8 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, _increment_last_byte
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, \
+    Revision, _increment_last_byte, Error, Failed, Success
 
 __all__ = (
     'Client',
@@ -582,21 +583,40 @@ class Client(object):
         3. A list of database operations called f op. Like t op, but
            executed if guard evaluates to false.
         """
-        self.log.warn('000')
-
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
         obj = txn.marshal()
         data = json.dumps(obj).encode('utf8')
 
-        print('111')
-
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        print('222')
+        #from pprint import pprint
+        #pprint(obj)
 
-        from pprint import pprint
-        pprint(obj)
-        #deleted = Deleted.parse(obj)
+        if u'error' in obj:
+            error = Error.parse(obj)
+            raise error
 
-        returnValue(obj)
+        if u'header' in obj:
+            header = Header.parse(obj[u'header'])
+        else:
+            header = None
+
+        responses = []
+        for r in obj.get(u'responses', []):
+            if len(r.keys()) != 1:
+                raise Exception('bogus transaction response (multiple response tags in item): {}'.format(obj))
+
+            if u'response_put' in r:
+                re = Revision.parse(r[u'response_put'])
+            elif u'response_delete_range' in r:
+                re = Deleted.parse(r[u'response_delete_range'])
+            else:
+                raise Exception('response item "{}" bogus or not implemented'.format(r.keys()[0]))
+
+            responses.append(re)
+
+        if obj.get(u'succeeded', False):
+            returnValue(Success(header, responses))
+        else:
+            raise Failed(header, responses)

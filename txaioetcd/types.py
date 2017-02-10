@@ -48,6 +48,9 @@ __all__ = (
     'OpSet',
     'OpDel',
     'Transaction',
+    'Error',
+    'Failed',
+    'Success'
 )
 
 
@@ -724,3 +727,42 @@ class Transaction(object):
         success = u'[' + u', '.join(str(x) for x in self.success) + u']' if self.success else None
         failure = u'[' + u', '.join(str(x) for x in self.failure) + u']' if self.failure else None
         return u'Transaction(compare={}, success={}, failure={})'.format(compare, success, failure)
+
+
+class Error(RuntimeError):
+
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+
+    @staticmethod
+    def parse(obj):
+        # {'code': 3, 'error': 'etcdserver: duplicate key given in txn request'}
+        code = int(obj[u'code']) if u'code' in obj else None
+        message = obj.get(u'error', None)
+        return Error(code, message)
+
+    def __str__(self):
+        return u'Error(code={}, message="{}")'.format(self.code, self.message)
+
+
+class Failed(RuntimeError):
+
+    def __init__(self, header, responses):
+        self.header = header
+        self.responses = responses
+
+    def __str__(self):
+        responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
+        return u'Failed(header={}, responses={})'.format(self.header, responses)
+
+
+class Success(object):
+
+    def __init__(self, header, responses):
+        self.header = header
+        self.responses = responses
+
+    def __str__(self):
+        responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
+        return u'Success(header={}, responses={})'.format(self.header, responses)

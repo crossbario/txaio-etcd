@@ -29,7 +29,7 @@ from twisted.internet.defer import inlineCallbacks
 
 import txaio
 from txaioetcd import Client, KeySet, Transaction, \
-    CompValue, CompVersion, OpGet, OpSet, OpDel
+    CompValue, CompVersion, OpGet, OpSet, OpDel, Failed
 
 
 @inlineCallbacks
@@ -41,35 +41,35 @@ def main(reactor):
     status = yield etcd.status()
     print(status)
 
-    yield etcd.set(b'foo', b'bar')
+    yield etcd.set(b'goo', b'bar')
 
     txn = Transaction(
         compare=[
-            CompValue(b'foo', '==', b'bars'),
-            #CompVersion(b'foo', '==', 23)
+            CompValue(b'goo', '==', b'bar'),
+            CompVersion(b'goo', '==', 23)
         ],
         success=[
-            OpSet(b'foo', b'baz'),
-            #OpSet(b'test', b'done'),
+            OpSet(b'poo', b'baz'),
+            OpSet(b'test', b'done'),
+            OpDel(KeySet(b'foo', prefix=True))
         ],
         failure=[
-            OpSet(b'foo', b'moo'),
-            #OpDel(KeySet(b'foo', prefix=True)),
+            OpSet(b'goo', b'bar'),
+            OpSet(b'goo2', b'bar'),
+            OpDel(KeySet(b'foo', prefix=True)),
         ]
     )
 
-    #print(txn)
-
-    #from pprint import pprint
-    #obj = txn.marshal()
-    #pprint(obj)
-
     try:
         result = yield etcd.submit(txn)
-    except Exception as e:
-        print('transaction failed: {}'.format(e))
+    except Failed as failed:
+        print('transaction FAILED with these responses:')
+        for response in failed.responses:
+            print(response)
     else:
-        print('transaction succeeded: {}'.format(result))
+        print('transaction SUCCESS with these responses:')
+        for response in result.responses:
+            print(response)
 
 
 if __name__ == '__main__':

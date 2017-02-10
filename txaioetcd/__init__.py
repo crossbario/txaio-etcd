@@ -33,7 +33,7 @@ version = __version__
 from txaioetcd.client import Client
 from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, \
     Comp, CompValue, CompVersion, CompCreated, CompModified, \
-    Op, OpGet, OpSet, OpDel, Transaction
+    Op, OpGet, OpSet, OpDel, Transaction, Error, Failed, Success
 
 # This is the complete public API of txaioetcd:
 __all__ = (
@@ -57,4 +57,7 @@ __all__ = (
     'OpSet',
     'OpDel',
     'Transaction',
+    'Error',
+    'Failed',
+    'Success',
 )
