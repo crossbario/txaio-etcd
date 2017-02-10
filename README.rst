@@ -266,10 +266,29 @@ Watching keys
     d.cancel()
 
 
+Transactions
+............
+
+.. sourcecode:: python
+
+    # transactions
+    txn = Transaction(
+        compare=[
+            Compare(etcd.transactions.value(b'test') == b'failure'
+        ],
+        success=[
+            etcd.Set(b'test', b'success'),
+        ],
+        failure=[
+            etcd.Set(b'test', b'failure'),
+        ]
+    )
+    result = yield etcd.submit(txn)
+    print(result)
+
+
 Leases
 ......
-
-
 
 
 Locks
