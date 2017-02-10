@@ -28,7 +28,8 @@ from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks
 
 import txaio
-from txaioetcd import Client
+from txaioetcd import Client, KeySet, Transaction, \
+    CompValue, CompVersion, OpGet, OpSet, OpDel
 
 
 @inlineCallbacks
@@ -39,6 +40,29 @@ def main(reactor):
     # retrieve etcd cluster status
     status = yield etcd.status()
     print(status)
+
+    txn = Transaction(
+        compare=[
+            CompValue(b'foo', '==', b'bar'),
+            CompVersion(b'foo', '==', 23)
+        ],
+        success=[
+            OpSet(b'foo', b'baz'),
+            OpSet(b'test', b'done'),
+        ],
+        failure=[
+            OpDel(KeySet(b'foo', prefix=True)),
+        ]
+    )
+
+    print(txn)
+
+    try:
+        result = yield etcd.submit(txn)
+    except Exception as e:
+        print('transaction failed: {}'.format(e))
+    else:
+        print('transaction succeeded: {}'.format(result))
 
 
 if __name__ == '__main__':

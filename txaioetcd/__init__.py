@@ -31,15 +31,30 @@ from txaio._version import __version__
 version = __version__
 
 from txaioetcd.client import Client
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision
+from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, \
+    Comp, CompValue, CompVersion, CompCreated, CompModified, \
+    Op, OpGet, OpSet, OpDel, Transaction
 
+# This is the complete public API of txaioetcd:
 __all__ = (
     '__version__',
     'Client',
+
     'KeySet',
     'KeyValue',
     'Header',
     'Status',
     'Deleted',
     'Revision',
+
+    'Comp',
+    'CompValue',
+    'CompVersion',
+    'CompCreated',
+    'CompModified',
+    'Op',
+    'OpGet',
+    'OpSet',
+    'OpDel',
+    'Transaction',
 )

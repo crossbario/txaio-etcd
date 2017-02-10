@@ -38,12 +38,22 @@ __all__ = (
     'Status',
     'Deleted',
     'Revision',
+    'Comp',
+    'CompValue',
+    'CompVersion',
+    'CompCreated',
+    'CompModified',
+    'Op',
+    'OpGet',
+    'OpSet',
+    'OpDel',
+    'Transaction',
 )
 
 
 def _maybe_text(data):
     try:
-        return u'{}'.format(data)
+        return u'"{}"'.format(data)
     except:
         return binascii.b2a_hex(data)
 
@@ -98,6 +108,9 @@ class KeySet(object):
             self.type = self.RANGE
         else:
             self.type = self.SINGLE
+
+    def __str__(self):
+        return u'KeySet(key={}, range_end={}, prefix={})'.format(_maybe_text(self.key), _maybe_text(self.range_end), self.prefix)
 
 
 class KeyValue(object):
@@ -340,3 +353,272 @@ class Revision(object):
 
     def __str__(self):
         return u'Revision(header={}, previous={})'.format(self.header, self.previous)
+
+
+class Comp(object):
+    """
+    Base class for representing comparisons against a KV item.
+    """
+
+    OPERATORS = {
+        u'==': u'EQUAL',
+        u'!=': u'NOT_EQUAL',
+        u'>': u'GREATER',
+        u'<': u'LESS',
+    }
+
+    def __init__(self, key, compare):
+        """
+
+        :param key: The subject key for the comparison operation.
+        :type key: bytes
+        :param compare: The comparison operator to apply.
+        :type compare: str
+        """
+        if type(key) != six.binary_type:
+            raise TypeError('key must be bytes type, not {}'.format(type(key)))
+
+        if compare not in Comp.OPERATORS:
+            raise TypeError('compare must be one of {}, not "{}"'.format(Comp.OPERATORS, compare))
+
+        self.key = key
+        self.compare = compare
+
+    def __str__(self):
+        return u'Comp(key={}, compare="{}")'.format(_maybe_text(self.key), self.compare)
+
+
+class CompValue(Comp):
+    """
+    Represents a comparison against a KV value.
+    """
+
+    def __init__(self, key, compare, value):
+        """
+
+        :param key: The subject key for the comparison operation.
+        :type key: bytes
+        :param compare: The comparison operator to apply.
+        :type compare: str
+        :param value: The value to compare to.
+        :type value: bytes
+        """
+        Comp.__init__(self, key, compare)
+
+        if type(value) != six.binary_type:
+            raise TypeError('value must be bytes type, not {}'.format(type(value)))
+
+        self.value = value
+
+    def __str__(self):
+        return u'CompValue(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, _maybe_text(self.value))
+
+
+class CompVersion(Comp):
+    """
+    Represents a comparison against a KV version.
+    """
+
+    def __init__(self, key, compare, value):
+        """
+
+        :param key: The subject key for the comparison operation.
+        :type key: bytes
+        :param compare: The comparison operator to apply.
+        :type compare: str
+        :param value: The value to compare to.
+        :type value: int
+        """
+        Comp.__init__(self, key, compare)
+
+        if type(value) not in six.integer_types:
+            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+
+        self.value = value
+
+    def __str__(self):
+        return u'CompVersion(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+
+
+class CompCreated(Comp):
+    """
+    Represents a comparison against a KV create_revision.
+    """
+
+    def __init__(self, key, compare, value):
+        """
+
+        :param key: The subject key for the comparison operation.
+        :type key: bytes
+        :param compare: The comparison operator to apply.
+        :type compare: str
+        :param value: The value to compare to.
+        :type value: int
+        """
+        Comp.__init__(self, key, compare)
+
+        if type(value) not in six.integer_types:
+            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+
+        self.value = value
+
+    def __str__(self):
+        return u'CompCreated(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+
+
+class CompModified(Comp):
+    """
+    Represents a comparison against a KV mod_revision.
+    """
+
+    def __init__(self, key, compare, value):
+        """
+
+        :param key: The subject key for the comparison operation.
+        :type key: bytes
+        :param compare: The comparison operator to apply.
+        :type compare: str
+        :param value: The value to compare to.
+        :type value: int
+        """
+        Comp.__init__(self, key, compare)
+
+        if type(value) not in six.integer_types:
+            raise TypeError('value must be an integer type, not {}'.format(type(value)))
+
+        self.value = value
+
+    def __str__(self):
+        return u'CompModified(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, self.value)
+
+
+class Op(object):
+    """
+    Base class that represents a single operation within a transaction.
+    """
+
+
+class OpGet(Op):
+    """
+    Represents a get operation as part of a transaction.
+    """
+
+    def __init__(self, key):
+        """
+
+        :param key: The key or key set to get.
+        :type key: bytes or KeySet
+        """
+        Op.__init__(self)
+
+        if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
+            raise TypeError('key must be bytes or KeySet, not {}'.format(type(key)))
+
+        if isinstance(key, KeySet):
+            self.key = key
+        else:
+            self.key = KeySet(key)
+
+    def __str__(self):
+        return u'OpGet(key={})'.format(self.key)
+
+
+class OpSet(Op):
+    """
+    Represents a set operation as part of a transaction.
+    """
+
+    def __init__(self, key, value):
+        """
+
+        :param key: The key to set.
+        :type key: bytes
+        :param value: The value to set.
+        :type value: bytes
+        """
+        Op.__init__(self)
+
+        if type(key) != six.binary_type:
+            raise TypeError('key must be bytes type, not {}'.format(type(key)))
+        if type(value) != six.binary_type:
+            raise TypeError('value must be bytes type, not {}'.format(type(value)))
+
+        self.key = key
+        self.value = value
+
+    def __str__(self):
+        return u'OpSet(key={}, value={})'.format(_maybe_text(self.key), _maybe_text(self.value))
+
+
+class OpDel(Op):
+    """
+    Represents a delete operation as part of a transaction.
+    """
+
+    def __init__(self, key):
+        """
+
+        :param key: The key or key set to delete.
+        :type key: bytes or KeySet
+        """
+        Op.__init__(self)
+
+        if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
+            raise TypeError('key must be bytes or KeySet, not {}'.format(type(key)))
+
+        if isinstance(key, KeySet):
+            self.key = key
+        else:
+            self.key = KeySet(key)
+
+    def __str__(self):
+        return u'OpDel(key={})'.format(self.key)
+
+
+class Transaction(object):
+    """
+    """
+
+    def __init__(self, compare=None, success=None, failure=None):
+        """
+
+        :param compare: The comparisons this transaction should depend on.
+        :type compare: list or None
+        :param success: In case the transaction is successful, list of operations to perform.
+        :type success: list of Op or None
+        :param failure: In case the transaction is unsuccesful, the list of operations to perform.
+        :type failure: list of Op or None
+        """
+        if compare is not None:
+            if type(compare) != list:
+                raise TypeError('compare must be a list, not {}'.format(type(compare)))
+            else:
+                for c in compare:
+                    if not isinstance(c, Comp):
+                        raise TypeError('compare must be a list of Comp elements, but encountered element of type {}'.format(type(c)))
+
+        if success is not None:
+            if type(success) != list:
+                raise TypeError('success must be a list, not {}'.format(type(success)))
+            else:
+                for op in success:
+                    if not isinstance(op, Op):
+                        raise TypeError('success must be a list of Op elements, but encountered element of type {}'.format(type(op)))
+
+        if failure is not None:
+            if type(failure) != list:
+                raise TypeError('failure must be a list, not {}'.format(type(failure)))
+            else:
+                for op in failure:
+                    if not isinstance(op, Op):
+                        raise TypeError('failure must be a list of Op elements, but encountered element of type {}'.format(type(op)))
+
+        self.compare = compare
+        self.success = success
+        self.failure = failure
+
+    def __str__(self):
+        compare = u'[' + u', '.join(str(x) for x in self.compare) + u']' if self.compare else None
+        success = u'[' + u', '.join(str(x) for x in self.success) + u']' if self.success else None
+        failure = u'[' + u', '.join(str(x) for x in self.failure) + u']' if self.failure else None
+        return u'Transaction(compare={}, success={}, failure={})'.format(compare, success, failure)
