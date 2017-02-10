@@ -154,6 +154,7 @@ class _StreamingReceiver(protocol.Protocol):
                 break
 
     def connectionLost(self, reason):
+        self.log.warn('watch connection lost: {reason}', reason=reason)
         # FIXME: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         if self._done:
             self._done.callback(reason)
@@ -169,12 +170,12 @@ class Client(object):
     etcd client that talks to the gRPC HTTP gateway endpoint of etcd v3.
 
     TODO:
-        * /v3alpha/kv/deleterange
-        * /v3alpha/kv/txn
-        * /v3alpha/lease/grant
-        * /v3alpha/lease/keepalive
-        * /v3alpha/kv/lease/revoke
-        * /v3alpha/kv/lease/timetolive
+        * Transactions: /v3alpha/kv/txn
+        * Leases:
+            * /v3alpha/lease/grant
+            * /v3alpha/lease/keepalive
+            * /v3alpha/kv/lease/revoke
+            * /v3alpha/kv/lease/timetolive
 
     See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
     """

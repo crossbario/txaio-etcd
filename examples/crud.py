@@ -37,13 +37,16 @@ from txaioetcd import Client, KeySet
 def main(reactor):
     etcd = Client(reactor, u'http://localhost:2379')
 
+    # set key-value
+    etcd.set(b'foo', os.urandom(8))
+
     # set key-value, return revision including previous value
     revision = yield etcd.set(b'foo', os.urandom(8), return_previous=True)
     print(revision)
 
     # set values on keys
     for i in range(10):
-        yield etcd.set('mykey{}'.format(i).encode(), os.urandom(8))
+        etcd.set('mykey{}'.format(i).encode(), os.urandom(8))
 
     # get value by key
     kv = yield etcd.get(b'mykey1')

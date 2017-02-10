@@ -137,8 +137,8 @@ class KeyValue(object):
 
     @staticmethod
     def parse(obj):
-        key = binascii.a2b_base64(obj[u'key'])
-        value = binascii.a2b_base64(obj[u'value'])
+        key = binascii.a2b_base64(obj[u'key']) if u'key' in obj else None
+        value = binascii.a2b_base64(obj[u'value']) if u'value' in obj else None
         version = int(obj[u'version']) if u'version' in obj else None
         create_revision = int(obj[u'create_revision']) if u'create_revision' in obj else None
         mod_revision = int(obj[u'mod_revision']) if u'mod_revision' in obj else None

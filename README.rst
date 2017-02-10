@@ -175,7 +175,7 @@ Setting keys
 .. sourcecode:: python
 
     for i in range(10):
-        etcd.set('mykey{}'.format(i).encode(), b'woa;)')
+        etcd.set('mykey{}'.format(i).encode(), b'foobar')
 
 Note that both keys and values in etcd3 are arbitrary byte strings.
 
@@ -259,6 +259,12 @@ Watching keys
     # stop after 20 seconds
     yield sleep(20)
     d.cancel()
+
+
+Leases
+......
+
+
 
 
 Locks
