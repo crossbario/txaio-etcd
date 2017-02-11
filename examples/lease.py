@@ -44,6 +44,7 @@ def main(reactor):
     yield example2(reactor, etcd)
     yield example3(reactor, etcd)
     yield example4(reactor, etcd)
+    yield example5(reactor, etcd)
 
 
 @inlineCallbacks
@@ -124,6 +125,31 @@ def example3(reactor, etcd):
 def example4(reactor, etcd):
 
     print("\n\nEXAMPLE 4")
+
+    print('creating lease with 5s TTL')
+    lease = yield etcd.lease(5)
+    print(lease)
+
+    yield etcd.set(b'foo', b'bar', lease=lease)
+
+    i = 0
+    while True:
+        try:
+            kv = yield etcd.get(b'foo')
+            print(kv)
+            i += 1
+        except IndexError:
+            print('key has been deleted together with expired lease ({}s)'.format(i))
+            break
+        else:
+            print('sleeping for 1s ..')
+            yield txaio.sleep(1)
+
+
+@inlineCallbacks
+def example5(reactor, etcd):
+
+    print("\n\nEXAMPLE 5")
 
     print('creating lease with 5s TTL')
     lease = yield etcd.lease(5)
