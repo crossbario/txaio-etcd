@@ -41,6 +41,42 @@ def main(reactor):
     status = yield etcd.status()
     print(status)
 
+    yield example1(reactor, etcd)
+    yield example2(reactor, etcd)
+    yield example3(reactor, etcd)
+
+
+@inlineCallbacks
+def example1(reactor, etcd):
+
+    print("\n\nEXAMPLE 1")
+
+    print('creating lease with 5s TTL')
+    lease = yield etcd.lease(5)
+    print(lease)
+
+    i = 1
+    while True:
+        try:
+            remaining = yield lease.remaining()
+            i += 1
+        except Expired:
+            if i == 5:
+                print('lease expired (expected)')
+                break
+            else:
+                raise
+        else:
+            print('lease TTL = {}'.format(remaining))
+            print('sleeping for 1s ..')
+            yield txaio.sleep(1)
+
+
+@inlineCallbacks
+def example2(reactor, etcd):
+
+    print("\n\nEXAMPLE 2")
+
     print('creating lease with 5s TTL')
     lease = yield etcd.lease(5)
     print(lease)
@@ -60,6 +96,12 @@ def main(reactor):
     except Expired:
         print('leave expired (expected)')
 
+
+@inlineCallbacks
+def example3(reactor, etcd):
+
+    print("\n\nEXAMPLE 3")
+
     print('creating lease with 5s TTL')
     lease = yield etcd.lease(5)
     print(lease)
@@ -76,6 +118,7 @@ def main(reactor):
         yield lease.refresh()
     except Expired:
         print('leave expired (expected)')
+
 
 if __name__ == '__main__':
     txaio.start_logging(level='info')

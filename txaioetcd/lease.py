@@ -43,8 +43,6 @@ __all__ = (
 class Lease(object):
     """
 
-    * /v3alpha/kv/lease/revoke
-    * /v3alpha/kv/lease/timetolive
     """
 
     def __init__(self, client, header, time_to_live, lease_id=None):
@@ -75,6 +73,41 @@ class Lease(object):
         time_to_live = int(obj[u'TTL'])
         lease_id = int(obj[u'ID'])
         return Lease(client, header, time_to_live, lease_id)
+
+    @inlineCallbacks
+    def remaining(self, retrieve_keys=None):
+        """
+        Retrieves lease information.
+
+        URL: /v3alpha/kv/lease/timetolive
+        """
+        if self._expired:
+            raise Expired()
+
+        obj = {
+            u'ID': self.lease_id,
+        }
+        if retrieve_keys:
+            obj[u'keys'] = True
+        data = json.dumps(obj).encode('utf8')
+
+        url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()
+        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+
+        obj = yield treq.json_content(response)
+
+        #from pprint import pprint
+        #pprint(obj)
+
+        ttl = obj.get(u'TTL', None)
+        if not ttl:
+            self._expired = True
+            raise Expired()
+
+        #grantedTTL = int(obj[u'grantedTTL'])
+        #header = Header.parse(obj[u'header']) if u'header' in obj else None
+
+        returnValue(ttl)
 
     @inlineCallbacks
     def revoke(self):
