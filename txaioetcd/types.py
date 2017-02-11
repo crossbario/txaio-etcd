@@ -604,7 +604,7 @@ class OpSet(Op):
     Represents a set operation as part of a transaction.
     """
 
-    def __init__(self, key, value):
+    def __init__(self, key, value, lease=None, return_previous=None):
         """
 
         :param key: The key to set.
@@ -616,11 +616,20 @@ class OpSet(Op):
 
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes type, not {}'.format(type(key)))
+
         if type(value) != six.binary_type:
             raise TypeError('value must be bytes type, not {}'.format(type(value)))
 
+        if lease is not None and not isinstance(lease, Lease):
+            raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
+
+        if return_previous is not None and type(return_previous) != bool:
+            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+
         self.key = key
         self.value = value
+        self.lease = lease
+        self.return_previous = return_previous
 
     def marshal(self):
         obj = {
@@ -629,10 +638,16 @@ class OpSet(Op):
                 u'value': binascii.b2a_base64(self.value).decode()
             }
         }
+
+        if self.lease:
+            obj[u'lease'] = self.lease.lease_id
+        if self.return_previous:
+            obj[u'return_previous'] = True
+
         return obj
 
     def __str__(self):
-        return u'OpSet(key={}, value={})'.format(_maybe_text(self.key), _maybe_text(self.value))
+        return u'OpSet(key={}, value={}, lease={}, return_previous={})'.format(_maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous))
 
 
 class OpDel(Op):
@@ -640,11 +655,13 @@ class OpDel(Op):
     Represents a delete operation as part of a transaction.
     """
 
-    def __init__(self, key):
+    def __init__(self, key, return_previous=None):
         """
 
         :param key: The key or key set to delete.
         :type key: bytes or KeySet
+        :param return_previous: If enabled, return the deleted key-value pairs
+        :type return_previous: bool or None
         """
         Op.__init__(self)
 
@@ -656,10 +673,19 @@ class OpDel(Op):
         else:
             self.key = KeySet(key)
 
+        if return_previous is not None and type(return_previous) != bool:
+            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+
+        self.return_previous = return_previous
+
     def marshal(self):
         obj = {
             u'request_delete_range': self.key.marshal()
         }
+
+        if self.return_previous:
+            obj[u'prev_kv'] = True
+
         return obj
 
     def __str__(self):

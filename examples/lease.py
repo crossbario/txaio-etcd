@@ -34,16 +34,16 @@ from txaioetcd.types import Expired
 
 @inlineCallbacks
 def main(reactor):
-    # create an etcd client
+
     etcd = Client(reactor, u'http://localhost:2379')
 
-    # retrieve etcd cluster status
     status = yield etcd.status()
     print(status)
 
     yield example1(reactor, etcd)
     yield example2(reactor, etcd)
     yield example3(reactor, etcd)
+    yield example4(reactor, etcd)
 
 
 @inlineCallbacks
@@ -118,6 +118,29 @@ def example3(reactor, etcd):
         yield lease.refresh()
     except Expired:
         print('leave expired (expected)')
+
+
+@inlineCallbacks
+def example4(reactor, etcd):
+
+    print("\n\nEXAMPLE 4")
+
+    print('creating lease with 5s TTL')
+    lease = yield etcd.lease(5)
+    print(lease)
+
+    keys = yield lease.keys()
+    print(keys)
+
+    yield etcd.set(b'foo', b'bar', lease=lease)
+
+    keys = yield lease.keys()
+    print(keys)
+
+    yield etcd.delete(b'foo')
+
+    keys = yield lease.keys()
+    print(keys)
 
 
 if __name__ == '__main__':

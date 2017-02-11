@@ -45,6 +45,7 @@ import treq
 
 from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, \
     Revision, _increment_last_byte, Error, Failed, Success, Range
+
 from txaioetcd.lease import Lease
 
 __all__ = (
@@ -286,15 +287,14 @@ class Client(object):
         :param key: key is the key, in bytes, to put into
             the key-value store.
         :type key: bytes
-        :param lease: lease is the lease ID to associate
-            with the key in the key-value store. A lease\nvalue of 0 indicates no lease.
-        :type lease: int
-        :param prev_kv: If prev_kv is set, etcd gets the previous
-            key-value pair before changing it.\nThe previous key-value pair will be returned in the put response.
-        :type prev_kv: bool
+
         :param value: value is the value, in bytes, to
             associate with the key in the key-value store.
         :key value: bytes
+
+        :param lease: Lease to associate the key in the
+            key-value store with.
+        :type lease: instance of Lease or None
 
         :param return_previous: If set, return the previous key-value.
         :type return_previous: bool or None
@@ -304,6 +304,9 @@ class Client(object):
 
         if type(value) != six.binary_type:
             raise TypeError('value must be bytes, not {}'.format(type(value)))
+
+        if lease is not None and not isinstance(lease, Lease):
+            raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
 
         if return_previous is not None and type(return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
@@ -315,6 +318,8 @@ class Client(object):
         }
         if return_previous:
             obj[u'prev_kv'] = True
+        if lease and lease.lease_id:
+            obj[u'lease'] = lease.lease_id
 
         data = json.dumps(obj).encode('utf8')
 

@@ -27,6 +27,7 @@
 from __future__ import absolute_import
 
 import json
+import binascii
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -75,7 +76,7 @@ class Lease(object):
         return Lease(client, header, time_to_live, lease_id)
 
     @inlineCallbacks
-    def remaining(self, retrieve_keys=None):
+    def remaining(self):
         """
         Retrieves lease information.
 
@@ -87,8 +88,6 @@ class Lease(object):
         obj = {
             u'ID': self.lease_id,
         }
-        if retrieve_keys:
-            obj[u'keys'] = True
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()
@@ -108,6 +107,41 @@ class Lease(object):
         #header = Header.parse(obj[u'header']) if u'header' in obj else None
 
         returnValue(ttl)
+
+    @inlineCallbacks
+    def keys(self):
+        """
+        Retrieves keys associated with the lease.
+
+        URL: /v3alpha/kv/lease/timetolive
+        """
+        if self._expired:
+            raise Expired()
+
+        obj = {
+            u'ID': self.lease_id,
+            u'keys': True
+        }
+        data = json.dumps(obj).encode('utf8')
+
+        url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()
+        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+
+        obj = yield treq.json_content(response)
+
+        #from pprint import pprint
+        #pprint(obj)
+
+        ttl = obj.get(u'TTL', None)
+        if not ttl:
+            self._expired = True
+            raise Expired()
+
+        #grantedTTL = int(obj[u'grantedTTL'])
+        #header = Header.parse(obj[u'header']) if u'header' in obj else None
+        keys = [binascii.a2b_base64(key) for key in obj.get(u'keys', [])]
+
+        returnValue(keys)
 
     @inlineCallbacks
     def revoke(self):
