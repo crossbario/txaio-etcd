@@ -43,19 +43,19 @@ __all__ = (
 class Lease(object):
     """
 
-    * /v3alpha/lease/keepalive
     * /v3alpha/kv/lease/revoke
     * /v3alpha/kv/lease/timetolive
     """
 
     def __init__(self, client, header, time_to_live, lease_id=None):
         self._client = client
+        self._expired = False
         self.header = header
         self.time_to_live = time_to_live
         self.lease_id = lease_id
 
     def __str__(self):
-        return u'Lease(client={}, header={}, time_to_live={}, lease_id={})'.format(self._client, self.header, self.time_to_live, self.lease_id)
+        return u'Lease(client={}, expired={}, header={}, time_to_live={}, lease_id={})'.format(self._client, self._expired, self.header, self.time_to_live, self.lease_id)
 
     @staticmethod
     def parse(client, obj):
@@ -77,11 +77,49 @@ class Lease(object):
         return Lease(client, header, time_to_live, lease_id)
 
     @inlineCallbacks
+    def revoke(self):
+        """
+        Revokes a lease. All keys attached to the lease will expire
+        and be deleted.
+
+        URL: /v3alpha/kv/lease/revoke
+        """
+        if self._expired:
+            raise Expired()
+
+        obj = {
+            # ID is the lease ID to revoke. When the ID is revoked, all
+            # associated keys will be deleted.
+            u'ID': self.lease_id,
+        }
+        data = json.dumps(obj).encode('utf8')
+
+        url = u'{}/v3alpha/kv/lease/revoke'.format(self._client._url).encode()
+        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+
+        obj = yield treq.json_content(response)
+
+        #from pprint import pprint
+        #pprint(obj)
+
+        header = Header.parse(obj[u'header']) if u'header' in obj else None
+
+        self._expired = True
+
+        returnValue(header)
+
+    @inlineCallbacks
     def refresh(self):
         """
+        Keeps the lease alive by streaming keep alive requests from the client
+        to the server and streaming keep alive responses from the server to
+        the client.
 
         URL: /v3alpha/lease/keepalive
         """
+        if self._expired:
+            raise Expired()
+
         obj = {
             # ID is the lease ID for the lease to keep alive.
             u'ID': self.lease_id,
@@ -96,20 +134,16 @@ class Lease(object):
         #from pprint import pprint
         #pprint(obj)
 
-        # {'result': {'ID': '1780709837822722795',
-        #             'TTL': '5',
-        #             'header': {'cluster_id': '12111318200661820288',
-        #                        'member_id': '13006018358126188726',
-        #                        'raft_term': '2',
-        #                        'revision': '119'}}}
-
         if u'result' not in obj:
             raise Exception('bogus lease refresh response (missing "result") in {}'.format(obj))
 
         ttl = obj[u'result'].get(u'TTL', None)
         if not ttl:
+            self._expired = True
             raise Expired()
 
         header = Header.parse(obj[u'result'][u'header']) if u'header' in obj[u'result'] else None
+
+        self._expired = False
 
         returnValue(header)

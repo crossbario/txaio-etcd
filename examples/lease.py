@@ -60,6 +60,22 @@ def main(reactor):
     except Expired:
         print('leave expired (expected)')
 
+    print('creating lease with 5s TTL')
+    lease = yield etcd.lease(5)
+    print(lease)
+
+    print('sleeping for 2s ..')
+    yield txaio.sleep(2)
+
+    print('revoking lease')
+    res = yield lease.revoke()
+    print(res)
+    print('refreshing lease')
+
+    try:
+        yield lease.refresh()
+    except Expired:
+        print('leave expired (expected)')
 
 if __name__ == '__main__':
     txaio.start_logging(level='info')
