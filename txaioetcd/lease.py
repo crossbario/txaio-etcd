@@ -43,7 +43,6 @@ __all__ = (
 
 class Lease(object):
     """
-
     """
 
     def __init__(self, client, header, time_to_live, lease_id=None):
@@ -95,16 +94,13 @@ class Lease(object):
 
         obj = yield treq.json_content(response)
 
-        #from pprint import pprint
-        #pprint(obj)
-
         ttl = obj.get(u'TTL', None)
         if not ttl:
             self._expired = True
             raise Expired()
 
-        #grantedTTL = int(obj[u'grantedTTL'])
-        #header = Header.parse(obj[u'header']) if u'header' in obj else None
+        # grantedTTL = int(obj[u'grantedTTL'])
+        # header = Header.parse(obj[u'header']) if u'header' in obj else None
 
         returnValue(ttl)
 
@@ -129,16 +125,13 @@ class Lease(object):
 
         obj = yield treq.json_content(response)
 
-        #from pprint import pprint
-        #pprint(obj)
-
         ttl = obj.get(u'TTL', None)
         if not ttl:
             self._expired = True
             raise Expired()
 
-        #grantedTTL = int(obj[u'grantedTTL'])
-        #header = Header.parse(obj[u'header']) if u'header' in obj else None
+        # grantedTTL = int(obj[u'grantedTTL'])
+        # header = Header.parse(obj[u'header']) if u'header' in obj else None
         keys = [binascii.a2b_base64(key) for key in obj.get(u'keys', [])]
 
         returnValue(keys)
@@ -165,9 +158,6 @@ class Lease(object):
         response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
 
         obj = yield treq.json_content(response)
-
-        #from pprint import pprint
-        #pprint(obj)
 
         header = Header.parse(obj[u'header']) if u'header' in obj else None
 
@@ -197,9 +187,6 @@ class Lease(object):
         response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
 
         obj = yield treq.json_content(response)
-
-        #from pprint import pprint
-        #pprint(obj)
 
         if u'result' not in obj:
             raise Exception('bogus lease refresh response (missing "result") in {}'.format(obj))

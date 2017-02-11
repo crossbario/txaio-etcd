@@ -13,25 +13,26 @@ txaioetcd - etcd for Twisted
 and the following advanced features
 
 - watch key sets with asynchronous callback
-- submit transactions
-- create, refresh and delete leases
+- submit transactions ("multiact")
+- create, refresh and revoke leases
+- associate key-values with leases
 
 **txaioetcd** also plans to provide abstractions on top of the etcd3 transaction primitive, like for example:
 
 - global locks and sequences
 - transactional, multi-consumer-producer queues
 
-WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome!
+WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome though;)
 
 
 Examples
 --------
 
-1. [x] `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
-2. [x] `Basic Operations (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
-3. [x] `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
-4. [x] `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
-5. [ ] `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
+1. `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
+2. `Basic Operations (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
+3. `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
+4. `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
+5. `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
 
 
 Requirements

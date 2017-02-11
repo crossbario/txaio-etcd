@@ -588,9 +588,6 @@ class Client(object):
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        #from pprint import pprint
-        #pprint(obj)
-
         if u'error' in obj:
             error = Error.parse(obj)
             raise error
@@ -644,8 +641,10 @@ class Client(object):
         """
         if lease_id is not None and type(lease_id) not in six.integer_types:
             raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
+
         if type(time_to_live) not in six.integer_types:
             raise TypeError('time_to_live must be integer, not {}'.format(type(time_to_live)))
+
         if time_to_live < 1:
             raise TypeError('time_to_live must >= 1 second, was {}'.format(time_to_live))
 
@@ -657,13 +656,8 @@ class Client(object):
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
-
         obj = yield treq.json_content(response)
-
-        #from pprint import pprint
-        #pprint(obj)
 
         lease = Lease.parse(self, obj)
 
         returnValue(lease)
-
