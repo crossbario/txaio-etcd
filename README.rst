@@ -1,8 +1,6 @@
 txaioetcd - etcd for Twisted
 ============================
 
-WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome!
-
 `etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn. Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
 
 **txaioetcd** currently supports these etcd3 basic features
@@ -23,15 +21,17 @@ and the following advanced features
 - [ ] global locks and sequences
 - [ ] transactional, multi-consumer-producer queues
 
+WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome!
+
 
 Examples
 --------
 
-1. `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
-2. `Basic Operatings (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
-3. `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
-4. `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
-5. `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
+1. [x] `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
+2. [x] `Basic Operations (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
+3. [x] `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
+4. [x] `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
+5. [ ] `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
 
 
 Requirements

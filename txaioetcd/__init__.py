@@ -34,6 +34,8 @@ from txaioetcd.client import Client
 from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, \
     Comp, CompValue, CompVersion, CompCreated, CompModified, \
     Op, OpGet, OpSet, OpDel, Transaction, Error, Failed, Success, Range
+from txaioetcd.lease import Lease
+
 
 # This is the complete public API of txaioetcd:
 __all__ = (
@@ -58,5 +60,7 @@ __all__ = (
     'Error',
     'Failed',
     'Success',
-    'Range'
+    'Expired',
+    'Range',
+    'Lease',
 )

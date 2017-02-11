@@ -51,6 +51,7 @@ __all__ = (
     'Error',
     'Failed',
     'Success',
+    'Expired',
     'Range'
 )
 
@@ -767,6 +768,12 @@ class Success(object):
     def __str__(self):
         responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
         return u'Success(header={}, responses={})'.format(self.header, responses)
+
+
+class Expired(RuntimeError):
+
+    def __init__(self):
+        RuntimeError.__init__(self, u'lease expired')
 
 
 class Range(object):

@@ -29,6 +29,7 @@ from twisted.internet.defer import inlineCallbacks
 
 import txaio
 from txaioetcd import Client
+from txaioetcd.types import Expired
 
 
 @inlineCallbacks
@@ -39,6 +40,25 @@ def main(reactor):
     # retrieve etcd cluster status
     status = yield etcd.status()
     print(status)
+
+    print('creating lease with 5s TTL')
+    lease = yield etcd.lease(5)
+    print(lease)
+
+    print('refreshing lease every 4s, 5 times ..')
+    for i in range(5):
+        rev = yield lease.refresh()
+        print(rev)
+        yield txaio.sleep(4)
+
+    print('sleeping for 6s ..')
+    yield txaio.sleep(6)
+
+    print('refreshing lease')
+    try:
+        yield lease.refresh()
+    except Expired:
+        print('leave expired (expected)')
 
 
 if __name__ == '__main__':

@@ -45,6 +45,7 @@ import treq
 
 from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, \
     Revision, _increment_last_byte, Error, Failed, Success, Range
+from txaioetcd.lease import Lease
 
 __all__ = (
     'Client',
@@ -157,14 +158,6 @@ class _None(object):
 class Client(object):
     """
     etcd client that talks to the gRPC HTTP gateway endpoint of etcd v3.
-
-    TODO:
-        * Transactions: /v3alpha/kv/txn
-        * Leases:
-            * /v3alpha/lease/grant
-            * /v3alpha/lease/keepalive
-            * /v3alpha/kv/lease/revoke
-            * /v3alpha/kv/lease/timetolive
 
     See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
     """
@@ -624,3 +617,48 @@ class Client(object):
             returnValue(Success(header, responses))
         else:
             raise Failed(header, responses)
+
+    @inlineCallbacks
+    def lease(self, time_to_live, lease_id=None):
+        """
+        LeaseGrant creates a lease which expires if the server does not
+        receive a keepAlive within a given time to live period.
+
+        All keys attached to the lease will be expired and deleted if
+        the lease expires.
+
+        Each expired key generates a delete event in the event history.
+
+        HTTP/POST URL: /v3alpha/lease/grant
+
+        :param time_to_live: TTL is the advisory time-to-live in seconds.
+        :type time_to_live: int
+        :param lease_id: ID is the requested ID for the lease.
+            If ID is None, the lessor (etcd) chooses an ID.
+        :type lease_id: int or None
+        """
+        if lease_id is not None and type(lease_id) not in six.integer_types:
+            raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
+        if type(time_to_live) not in six.integer_types:
+            raise TypeError('time_to_live must be integer, not {}'.format(type(time_to_live)))
+        if time_to_live < 1:
+            raise TypeError('time_to_live must >= 1 second, was {}'.format(time_to_live))
+
+        obj = {
+            u'TTL': time_to_live,
+            u'ID': lease_id or 0,
+        }
+        data = json.dumps(obj).encode('utf8')
+
+        url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
+        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+
+        obj = yield treq.json_content(response)
+
+        #from pprint import pprint
+        #pprint(obj)
+
+        lease = Lease.parse(self, obj)
+
+        returnValue(lease)
+
