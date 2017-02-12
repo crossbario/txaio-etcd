@@ -327,7 +327,7 @@ class Deleted(object):
         """
         self.deleted = deleted or 0
         self.header = header
-        self.previous = previous
+        self.previous = previous or []
 
     @staticmethod
     def parse(obj):
