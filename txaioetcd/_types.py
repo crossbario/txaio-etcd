@@ -325,7 +325,7 @@ class Deleted(object):
         :param previous:
         :type previous:
         """
-        self.deleted = deleted
+        self.deleted = deleted or 0
         self.header = header
         self.previous = previous
 

@@ -42,7 +42,7 @@ def main(reactor):
 
     # set key-value, return revision including previous value
     revision = yield etcd.set(b'foo', os.urandom(8), return_previous=True)
-    print(revision)
+    print('previous:', revision.previous)
 
     # set values on keys
     for i in range(10):
@@ -59,20 +59,23 @@ def main(reactor):
 
     # iterate over keys in range
     result = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
+    print('KV pairs for range:')
     for kv in result.kvs:
         print(kv)
 
     # iterate over keys with given prefix
     result = yield etcd.get(KeySet(b'mykey', prefix=True))
+    print('KV pairs for prefix:')
     for kv in result.kvs:
         print(kv)
 
     # delete a single key
     deleted = yield etcd.delete(b'mykey0')
-    print(deleted)
+    print('deleted {} key-value pairs'.format(deleted.deleted))
 
-    deleted = yield etcd.delete(b'mykey0')
-    print(deleted)
+    # delete non-existing key
+    deleted = yield etcd.delete(os.urandom(8))
+    print('deleted {} key-value pairs'.format(deleted.deleted))
 
     # delete a key range
     deleted = yield etcd.delete(KeySet(b'mykey2', b'mykey7'))
