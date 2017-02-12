@@ -6,24 +6,14 @@ grep_pb_api:
 	grep 'etcdserverpb.*"' docs/rpc.swagger.json | grep -v "ref" | grep -v "title" | uniq | sort | tr -d '"' | tr -d ": {"
 
 test:
-	tox
-
-coverage:
-	-rm test/.coverage
-# can we exclude just the flake8 environment?
-	tox -e py27-tw154,pypy-tw154,py34-tw154,py34-asyncio,py27-asyncio,pypy-asyncio,py27-tw132
-	cd test && coverage combine
-	cd test && coverage html
-	cd test && coverage report --show-missing
+	python examples/connect.py
+	python examples/crud.py
+	python examples/transaction.py
+	python examples/lease.py
+	python examples/watch.py
 
 install:
 	pip install --upgrade -e .[dev]
-
-docs:
-	cd docs && make html
-
-spelling:
-	cd docs && sphinx-build -b spelling . _spelling
 
 pep8:
 	pep8 test/*.py txaioetcd/*.py
