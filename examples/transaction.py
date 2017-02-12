@@ -86,8 +86,8 @@ def main(reactor):
     rev = yield etcd.set(b'mykey1', os.urandom(8))
     print(rev)
 
-    kvs = yield etcd.get(b'mykey1')
-    kv = kvs[0]
+    result = yield etcd.get(b'mykey1')
+    kv = result.kvs[0]
     print(kv)
 
     for version in [kv.version, kv.version - 1]:
@@ -129,8 +129,8 @@ def main(reactor):
             for response in result.responses:
                 print(response)
 
-        kvs = yield etcd.get(KeySet(b'mykey2', b'mykey4'))
-        for kv in kvs:
+        result = yield etcd.get(KeySet(b'mykey2', b'mykey4'))
+        for kv in result.kvs:
             print(kv)
 
 

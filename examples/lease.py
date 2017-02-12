@@ -133,9 +133,9 @@ def example4(reactor, etcd):
 
     i = 0
     while True:
-        kvs = yield etcd.get(b'foo')
-        if kvs:
-            kv = kvs[0]
+        result = yield etcd.get(b'foo')
+        if result.kvs:
+            kv = result.kvs[0]
             print(kv)
             i += 1
         else:

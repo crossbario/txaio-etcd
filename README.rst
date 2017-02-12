@@ -1,9 +1,13 @@
 txaioetcd - etcd for Twisted
 ============================
 
-`etcd3 <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications, which `Twisted <http://twistedmatrix.com/>`_ is an advanced substrate to implement in turn. Hence the desire for a fully asynchronous etcd3 Twisted client with broad feature support: **txaioetcd**.
+`etcd <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications. etcd describes itself as "distributed reliable key-value store for the most critical data of a distributed system".
 
-**txaioetcd** currently supports these etcd3 basic features
+`Twisted <http://twistedmatrix.com/>`_ is an advanced network framework to implement networked and distributed applications.
+
+Hence the desire for a fully asynchronous etcd v3 Twisted client with broad feature support: **txaioetcd**.
+
+**txaioetcd** currently supports these etcd v3 basic features
 
 - arbitrary byte strings for keys and values
 - set and get values by key
