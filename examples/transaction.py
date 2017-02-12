@@ -86,7 +86,8 @@ def main(reactor):
     rev = yield etcd.set(b'mykey1', os.urandom(8))
     print(rev)
 
-    kv = yield etcd.get(b'mykey1')
+    kvs = yield etcd.get(b'mykey1')
+    kv = kvs[0]
     print(kv)
 
     for version in [kv.version, kv.version - 1]:

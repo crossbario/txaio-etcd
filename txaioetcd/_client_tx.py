@@ -43,10 +43,10 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, \
-    Revision, _increment_last_byte, Error, Failed, Success, Range
+from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
+    Revision, Error, Failed, Success, Range, Lease
 
-from txaioetcd.lease import Lease
+from txaioetcd._types import _increment_last_byte
 
 __all__ = (
     'Client',
@@ -159,7 +159,7 @@ class _None(object):
 
 class Client(object):
     """
-    etcd client that talks to the gRPC HTTP gateway endpoint of etcd v3.
+    etcd Twisted client that talks to the gRPC HTTP gateway endpoint of etcd v3.
 
     See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
     """
@@ -179,8 +179,10 @@ class Client(object):
 
         :param rector: Twisted reactor to use.
         :type reactor: class
+
         :param url: etcd URL, eg `http://localhost:2379`
         :type url: str
+
         :param pool: Twisted Web agent connection pool
         :type pool:
         """
@@ -197,6 +199,9 @@ class Client(object):
         Get etcd status.
 
         URL:     /v3alpha/maintenance/status
+
+        :returns: The current etcd cluster status.
+        :rtype: instance of txaioetcd.Status
         """
         url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
         obj = {
@@ -210,69 +215,6 @@ class Client(object):
         status = Status.parse(obj)
 
         returnValue(status)
-
-    @inlineCallbacks
-    def delete(self, key, return_previous=None):
-        """
-        Delete value(s) from etcd.
-
-        URL:     /v3alpha/kv/deleterange
-
-        :param key: key is the first key to delete in the range.
-        :type key: bytes or KeySet
-        :param return_previous: If enabled, return the deleted key-value pairs
-        :type return_previous: bool or None
-        """
-        if type(key) == six.binary_type:
-            key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
-
-        if key.type == KeySet.SINGLE:
-            range_end = None
-        elif key.type == KeySet.PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet.RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
-
-        url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
-        obj = {
-            u'key': binascii.b2a_base64(key.key).decode(),
-        }
-        if range_end:
-            # range_end is the key following the last key to delete
-            # for the range [key, range_end).
-            # If range_end is not given, the range is defined to contain only
-            # the key argument.
-            # If range_end is one bit larger than the given key, then the range
-            # is all keys with the prefix (the given key).
-            # If range_end is '\\0', the range is all keys greater
-            # than or equal to the key argument.
-            #
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
-
-        if return_previous:
-            # If prev_kv is set, etcd gets the previous key-value pairs
-            # before deleting it.
-            # The previous key-value pairs will be returned in the
-            # delete response.
-            #
-            obj[u'prev_kv'] = True
-
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
-        obj = yield treq.json_content(response)
-        deleted = Deleted.parse(obj)
-
-        returnValue(deleted)
 
     @inlineCallbacks
     def set(self, key, value, lease=None, return_previous=None):
@@ -299,6 +241,9 @@ class Client(object):
 
         :param return_previous: If set, return the previous key-value.
         :type return_previous: bool or None
+
+        :returns: Revision info
+        :rtype: instance of Revision
         """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes, not {}'.format(type(key)))
@@ -332,7 +277,18 @@ class Client(object):
         returnValue(revision)
 
     @inlineCallbacks
-    def get(self, key, default=_None):
+    def get(self,
+            key,
+            count_only=None,
+            keys_only=None,
+            limit=None,
+            max_create_revision=None,
+            min_create_revision=None,
+            min_mod_revision=None,
+            revision=None,
+            serializable=None,
+            sort_order=None,
+            sort_target=None):
         """
         Range gets the keys in the range from the key-value store.
 
@@ -422,23 +378,83 @@ class Client(object):
 
         count = int(obj.get(u'count', 0))
         if count == 0:
-            if key.type == KeySet.SINGLE:
-                if default != _None:
-                    returnValue(default)
-                else:
-                    raise IndexError('no such key')
-            else:
-                returnValue([])
+            returnValue([])
         else:
-            if key.type == KeySet.SINGLE:
-                returnValue(KeyValue.parse(obj[u'kvs'][0]))
-            else:
-                values = []
-                for kv in obj[u'kvs']:
-                    values.append(KeyValue.parse(kv))
-                returnValue(values)
+            values = []
+            for kv in obj[u'kvs']:
+                values.append(KeyValue.parse(kv))
 
-    def watch(self, keys, on_watch, start_revision=None):
+            returnValue(values)
+
+    @inlineCallbacks
+    def delete(self, key, return_previous=None):
+        """
+        Delete value(s) from etcd.
+
+        URL:     /v3alpha/kv/deleterange
+
+        :param key: key is the first key to delete in the range.
+        :type key: bytes or KeySet
+
+        :param return_previous: If enabled, return the deleted key-value pairs
+        :type return_previous: bool or None
+
+        :returns: Deletion info
+        :rtype: instance of txaioetcd.Deleted
+        """
+        if type(key) == six.binary_type:
+            key = KeySet(key)
+        elif isinstance(key, KeySet):
+            pass
+        else:
+            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
+
+        if return_previous is not None and type(return_previous) != bool:
+            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+
+        if key.type == KeySet.SINGLE:
+            range_end = None
+        elif key.type == KeySet.PREFIX:
+            range_end = _increment_last_byte(key.key)
+        elif key.type == KeySet.RANGE:
+            range_end = key.range_end
+        else:
+            raise Exception('logic error')
+
+        url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
+        obj = {
+            u'key': binascii.b2a_base64(key.key).decode(),
+        }
+        if range_end:
+            # range_end is the key following the last key to delete
+            # for the range [key, range_end).
+            # If range_end is not given, the range is defined to contain only
+            # the key argument.
+            # If range_end is one bit larger than the given key, then the range
+            # is all keys with the prefix (the given key).
+            # If range_end is '\\0', the range is all keys greater
+            # than or equal to the key argument.
+            #
+            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+
+        if return_previous:
+            # If prev_kv is set, etcd gets the previous key-value pairs
+            # before deleting it.
+            # The previous key-value pairs will be returned in the
+            # delete response.
+            #
+            obj[u'prev_kv'] = True
+
+        data = json.dumps(obj).encode('utf8')
+
+        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        obj = yield treq.json_content(response)
+
+        deleted = Deleted.parse(obj)
+
+        returnValue(deleted)
+
+    def watch(self, keys, on_watch, filters=None, start_revision=None, return_previous=None):
         """
         Watch one or more keys or key sets and invoke a callback.
 
@@ -458,7 +474,7 @@ class Client(object):
             is \"now\".
         :type start_revision: int
         """
-        d = self._start_watching(keys, on_watch, start_revision)
+        d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
 
         def on_err(err):
             if err.type == CancelledError:
@@ -471,7 +487,7 @@ class Client(object):
 
         return d
 
-    def _start_watching(self, keys, on_watch, start_revision):
+    def _start_watching(self, keys, on_watch, filters, start_revision, return_previous):
         data = []
         headers = dict()
         url = u'{}/v3alpha/watch'.format(self._url).encode()
@@ -518,6 +534,16 @@ class Client(object):
             if range_end:
                 obj[u'create_request'][u'range_end'] = binascii.b2a_base64(range_end).decode()
 
+            if filters:
+                obj[u'create_request'][u'filters'] = filters
+
+            if return_previous:
+                # If prev_kv is set, created watcher gets the previous KV
+                # before the event happens.
+                # If the previous KV is already compacted, nothing will be
+                # returned.
+                obj[u'create_request'][u'prev_kv'] = True
+
             data.append(json.dumps(obj).encode('utf8'))
 
         data = b'\n'.join(data)
@@ -546,7 +572,7 @@ class Client(object):
     @inlineCallbacks
     def submit(self, txn):
         """
-        Submit a etcd transaction.
+        Submit a transaction.
 
         Processes multiple requests in a single transaction.
         A transaction increments the revision of the key-value store
@@ -581,6 +607,11 @@ class Client(object):
 
         3. A list of database operations called f op. Like t op, but
            executed if guard evaluates to false.
+
+        :param txn: The transaction to submit.
+        :type txn: Transaction object
+        :returns: An instance of Success or an exception of Failed or Error
+        :rtype: Success, Failed, Error
         """
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
         obj = txn.marshal()
@@ -639,6 +670,9 @@ class Client(object):
         :param lease_id: ID is the requested ID for the lease.
             If ID is None, the lessor (etcd) chooses an ID.
         :type lease_id: int or None
+        :returns: A lease object representing the created lease. This
+            can be used for refreshing or revoking the least etc.
+        :rtype: Lease object
         """
         if lease_id is not None and type(lease_id) not in six.integer_types:
             raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
@@ -656,6 +690,7 @@ class Client(object):
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
+
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
 

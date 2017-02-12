@@ -49,21 +49,13 @@ def main(reactor):
         etcd.set('mykey{}'.format(i).encode(), os.urandom(8))
 
     # get value by key
-    kv = yield etcd.get(b'mykey1')
-    print('kv: {}'.format(kv))
-
-    # get value by key, providing default value if not found
-    kv = yield etcd.get(b'xyz', None)
-    print('kv={}'.format(kv))
-
-    # get by key and catch index error
-    try:
-        for key in [b'mykey0', b'xyz']:
-            value = yield etcd.get(key)
-    except IndexError:
-        print('no such key: {}'.format(key))
-    else:
-        print(value)
+    for key in [b'mykey1', KeySet(b'mykey1'), b'mykey13']:
+        kvs = yield etcd.get(key)
+        if kvs:
+            kv = kvs[0]
+            print(kv)
+        else:
+            print('key {} not found!'.format(key))
 
     # iterate over keys in range
     kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
@@ -76,7 +68,11 @@ def main(reactor):
         print(kv)
 
     # delete a single key
-    yield etcd.delete(b'mykey0')
+    deleted = yield etcd.delete(b'mykey0')
+    print(deleted)
+
+    deleted = yield etcd.delete(b'mykey0')
+    print(deleted)
 
     # delete a key range
     deleted = yield etcd.delete(KeySet(b'mykey2', b'mykey7'))

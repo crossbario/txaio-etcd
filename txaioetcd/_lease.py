@@ -33,7 +33,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 import treq
 
-from txaioetcd.types import Header, Expired
+from txaioetcd._types import Header, Expired
 
 
 __all__ = (

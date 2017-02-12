@@ -28,8 +28,7 @@ from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks
 
 import txaio
-from txaioetcd import Client
-from txaioetcd.types import Expired
+from txaioetcd import Client, Expired
 
 
 @inlineCallbacks
@@ -134,16 +133,17 @@ def example4(reactor, etcd):
 
     i = 0
     while True:
-        try:
-            kv = yield etcd.get(b'foo')
+        kvs = yield etcd.get(b'foo')
+        if kvs:
+            kv = kvs[0]
             print(kv)
             i += 1
-        except IndexError:
+        else:
             print('key has been deleted together with expired lease ({}s)'.format(i))
             break
-        else:
-            print('sleeping for 1s ..')
-            yield txaio.sleep(1)
+
+        print('sleeping for 1s ..')
+        yield txaio.sleep(1)
 
 
 @inlineCallbacks

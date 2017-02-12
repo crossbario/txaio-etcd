@@ -194,7 +194,7 @@ class KeyValue(object):
         return KeyValue(key, value, version, create_revision, mod_revision)
 
     def __str__(self):
-        return u'KeyValue(key={}, value={}, version={}, create_revision={}, mod_revision{})'.format(_maybe_text(self.key), _maybe_text(self.value), self.version, self.create_revision, self.mod_revision)
+        return u'KeyValue(key={}, value={}, version={}, create_revision={}, mod_revision={})'.format(_maybe_text(self.key), _maybe_text(self.value), self.version, self.create_revision, self.mod_revision)
 
 
 class Header(object):
@@ -314,6 +314,17 @@ class Deleted(object):
         }
     """
     def __init__(self, deleted, header, previous=None):
+        """
+
+        :param deleted:
+        :type deleted:
+
+        :param header:
+        :type header:
+
+        :param previous:
+        :type previous:
+        """
         self.deleted = deleted
         self.header = header
         self.previous = previous
@@ -375,6 +386,14 @@ class Revision(object):
 
     """
     def __init__(self, header, previous=None):
+        """
+
+        :param header:
+        :type header: instance of Header
+
+        :param previous:
+        :type previous: list of instance of KeyValue
+        """
         self.header = header
         self.previous = previous
 
@@ -411,6 +430,7 @@ class Comp(object):
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
+
         :param compare: The comparison operator to apply.
         :type compare: str
         """
@@ -444,8 +464,10 @@ class CompValue(Comp):
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
+
         :param compare: The comparison operator to apply.
         :type compare: str
+
         :param value: The value to compare to.
         :type value: bytes
         """
@@ -476,8 +498,10 @@ class CompVersion(Comp):
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
+
         :param compare: The comparison operator to apply.
         :type compare: str
+
         :param version: The value to compare to.
         :type version: int
         """
@@ -508,8 +532,10 @@ class CompCreated(Comp):
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
+
         :param compare: The comparison operator to apply.
         :type compare: str
+
         :param create_revision: The value to compare to.
         :type create_revision: int
         """
@@ -540,8 +566,10 @@ class CompModified(Comp):
 
         :param key: The subject key for the comparison operation.
         :type key: bytes
+
         :param compare: The comparison operator to apply.
         :type compare: str
+
         :param mod_revision: The value to compare to.
         :type mod_revision: int
         """
@@ -573,7 +601,18 @@ class OpGet(Op):
     Represents a get operation as part of a transaction.
     """
 
-    def __init__(self, key):
+    def __init__(self,
+                 key,
+                 count_only=None,
+                 keys_only=None,
+                 limit=None,
+                 max_create_revision=None,
+                 min_create_revision=None,
+                 min_mod_revision=None,
+                 revision=None,
+                 serializable=None,
+                 sort_order=None,
+                 sort_target=None):
         """
 
         :param key: The key or key set to get.
@@ -589,10 +628,83 @@ class OpGet(Op):
         else:
             self.key = KeySet(key)
 
+        if count_only is not None and type(count_only) != bool:
+            raise TypeError('count_only must be bool, not {}'.format(type(count_only)))
+
+        if keys_only is not None and type(keys_only) != bool:
+            raise TypeError('keys_only must be bool, not {}'.format(type(keys_only)))
+
+        if limit is not None and type(limit) not in six.integer_types:
+            raise TypeError('limit must be integer, not {}'.format(type(limit)))
+
+        if max_create_revision is not None and type(max_create_revision) not in six.integer_types:
+            raise TypeError('max_create_revision must be integer, not {}'.format(type(max_create_revision)))
+
+        if min_create_revision is not None and type(min_create_revision) not in six.integer_types:
+            raise TypeError('min_create_revision must be integer, not {}'.format(type(min_create_revision)))
+
+        if min_mod_revision is not None and type(min_mod_revision) not in six.integer_types:
+            raise TypeError('min_mod_revision must be integer, not {}'.format(type(min_mod_revision)))
+
+        if revision is not None and type(revision) not in six.integer_types:
+            raise TypeError('revision must be integer, not {}'.format(type(revision)))
+
+        if serializable is not None and type(serializable) != bool:
+            raise TypeError('serializable must be bool, not {}'.format(type(serializable)))
+
+        SORT_TARGETS = [u'KEY', u'VERSION', u'CREATE', u'MOD', u'VALUE']
+        if sort_target is not None and sort_target not in SORT_TARGETS:
+            raise TypeError('sort_target must be one of {}, not {}'.format(SORT_TARGETS, sort_target))
+
+        SORT_ORDERS = [u'NONE', u'ASCEND', u'DESCEND']
+        if sort_order is not None and sort_order not in SORT_ORDERS:
+            raise TypeError('sort_order must be one of {}, not {}'.format(SORT_ORDERS, sort_order))
+
+        self.count_only = count_only
+        self.keys_only = keys_only
+        self.limit = limit
+        self.max_create_revision = max_create_revision
+        self.min_create_revision = min_create_revision
+        self.min_mod_revision = min_mod_revision
+        self.revision = revision
+        self.serializable = serializable
+        self.sort_order = sort_order
+        self.sort_target = sort_target
+
     def marshal(self):
         obj = {
             u'request_range': self.key.marshal()
         }
+        if self.count_only:
+            obj[u'count_only'] = True
+
+        if self.keys_only:
+            obj[u'keys_only'] = True
+
+        if self.limit:
+            obj[u'limit'] = self.limit
+
+        if self.max_create_revision:
+            obj[u'max_create_revision'] = self.max_create_revision
+
+        if self.min_create_revision:
+            obj[u'min_create_revision'] = self.min_create_revision
+
+        if self.min_mod_revision:
+            obj[u'min_mod_revision'] = self.min_mod_revision
+
+        if self.revision:
+            obj[u'revision'] = self.revision
+
+        if self.serializable:
+            obj[u'serializable'] = True
+
+        if self.sort_order:
+            obj[u'sort_order'] = self.sort_order
+
+        if self.sort_target:
+            obj[u'sort_target'] = self.sort_target
+
         return obj
 
     def __str__(self):
@@ -609,6 +721,7 @@ class OpSet(Op):
 
         :param key: The key to set.
         :type key: bytes
+
         :param value: The value to set.
         :type value: bytes
         """
@@ -660,6 +773,7 @@ class OpDel(Op):
 
         :param key: The key or key set to delete.
         :type key: bytes or KeySet
+
         :param return_previous: If enabled, return the deleted key-value pairs
         :type return_previous: bool or None
         """
@@ -701,8 +815,10 @@ class Transaction(object):
 
         :param compare: The comparisons this transaction should depend on.
         :type compare: list or None
+
         :param success: In case the transaction is successful, list of operations to perform.
         :type success: list of Op or None
+
         :param failure: In case the transaction is unsuccesful, the list of operations to perform.
         :type failure: list of Op or None
         """

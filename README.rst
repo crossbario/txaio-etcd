@@ -42,7 +42,7 @@ Requirements
 
 The implementation is pure Python code compatible with both **Python 2 and 3**, and runs perfect on **PyPy**.
 
-The library currently requires **Twisted**, though asyncio support can be added with no API break. Ah, did I mention? PRs are welcome! ;)
+The library currently requires **Twisted**, though the API was designed to allow adding asyncio support later (PRs are welcome!) with no breakage.
 
 But other than the underlying network library, there are only small pure Python dependencies.
 
@@ -205,18 +205,12 @@ Getting keys
 
 .. sourcecode:: python
 
-    try:
-        value = yield etcd.get(b'mykey')
-    except IndexError:
-        print('key not found')
+    kvs = yield etcd.get(b'mykey')
+    if kvs:
+        kv = kvs[0]
+        print(kv)
     else:
-        print('value: {}'.format(value))
-
-or providing a default value
-
-.. sourcecode:: python
-
-    value = yield etcd.get(b'mykey', None)
+        print('key not found')
 
 **Iterate** over key **range**
 
@@ -254,7 +248,7 @@ Deleting keys
 .. sourcecode:: python
 
     deleted = yield etcd.delete(KeySet(b'mykey3'), return_previous=True)
-    print('deleted key-value pairs: {}'.format(deleted))
+    print('deleted key-value pairs: {}'.format(deleted.previous))
 
 
 Watching keys
@@ -311,9 +305,13 @@ Transactions
 Leases
 ......
 
+Write me. For now, please see the lease.py example in the examples folder.
+
 
 Locks
 .....
+
+NO YET IMPLEMENTED (JUST A POSSIBLE SKETCH).
 
 Create or wait to acquire a named lock
 

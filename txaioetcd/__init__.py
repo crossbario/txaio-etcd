@@ -26,41 +26,57 @@
 
 from __future__ import absolute_import
 
-from txaio._version import __version__
+from txaioetcd._version import __version__
 
 version = __version__
 
-from txaioetcd.client import Client
-from txaioetcd.types import KeySet, KeyValue, Header, Status, Deleted, Revision, \
+from txaioetcd._types import KeySet, KeyValue, Header, Status, \
+    Deleted, Revision, \
     Comp, CompValue, CompVersion, CompCreated, CompModified, \
-    Op, OpGet, OpSet, OpDel, Transaction, Error, Failed, Success, Range
-from txaioetcd.lease import Lease
+    Op, OpGet, OpSet, OpDel, Transaction, Expired, Error, Failed, Success, \
+    Range
+
+from txaioetcd._lease import Lease
+
+import txaio
+
+if True:
+    from txaioetcd._client_tx import Client
+else:
+    from txaioetcd._client_aio import Client
 
 
 # This is the complete public API of txaioetcd:
 __all__ = (
     '__version__',
     'Client',
+
     'KeySet',
     'KeyValue',
+
     'Header',
     'Status',
-    'Deleted',
+
+    'Range',
     'Revision',
+    'Deleted',
+
+    'Error',
+    'Failed',
+    'Success',
+    'Expired',
+
     'Comp',
     'CompValue',
     'CompVersion',
     'CompCreated',
     'CompModified',
+
     'Op',
     'OpGet',
     'OpSet',
     'OpDel',
+
     'Transaction',
-    'Error',
-    'Failed',
-    'Success',
-    'Expired',
-    'Range',
     'Lease',
 )
