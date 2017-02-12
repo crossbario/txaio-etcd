@@ -376,15 +376,10 @@ class Client(object):
         response = yield treq.post(url, data, headers=self.REQ_HEADERS)
         obj = yield treq.json_content(response)
 
+        result = Range.parse(obj)
         count = int(obj.get(u'count', 0))
-        if count == 0:
-            returnValue([])
-        else:
-            values = []
-            for kv in obj[u'kvs']:
-                values.append(KeyValue.parse(kv))
 
-            returnValue(values)
+        returnValue(result)
 
     @inlineCallbacks
     def delete(self, key, return_previous=None):

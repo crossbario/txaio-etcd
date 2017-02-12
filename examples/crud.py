@@ -50,21 +50,21 @@ def main(reactor):
 
     # get value by key
     for key in [b'mykey1', KeySet(b'mykey1'), b'mykey13']:
-        kvs = yield etcd.get(key)
-        if kvs:
-            kv = kvs[0]
+        result = yield etcd.get(key)
+        if result.kvs:
+            kv = result.kvs[0]
             print(kv)
         else:
             print('key {} not found!'.format(key))
 
     # iterate over keys in range
-    kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
-    for kv in kvs:
+    result = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
+    for kv in result.kvs:
         print(kv)
 
     # iterate over keys with given prefix
-    kvs = yield etcd.get(KeySet(b'mykey', prefix=True))
-    for kv in kvs:
+    result = yield etcd.get(KeySet(b'mykey', prefix=True))
+    for kv in result.kvs:
         print(kv)
 
     # delete a single key
@@ -80,7 +80,9 @@ def main(reactor):
 
     # delete a key set defined by prefix and return deleted key-value pairs
     deleted = yield etcd.delete(KeySet(b'mykey', prefix=True), return_previous=True)
-    print(deleted)
+    print('deleted {} key-value pairs:'.format(deleted.deleted))
+    for d in deleted.previous:
+        print(d)
 
 
 if __name__ == '__main__':

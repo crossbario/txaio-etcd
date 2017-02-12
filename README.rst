@@ -205,9 +205,9 @@ Getting keys
 
 .. sourcecode:: python
 
-    kvs = yield etcd.get(b'mykey')
-    if kvs:
-        kv = kvs[0]
+    result = yield etcd.get(b'mykey')
+    if result.kvs:
+        kv = result.kvs[0]
         print(kv)
     else:
         print('key not found')
@@ -216,16 +216,16 @@ Getting keys
 
 .. sourcecode:: python
 
-    kvs = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
-    for kv in kvs:
+    result = yield etcd.get(KeySet(b'mykey1', b'mykey5'))
+    for kv in result.kvs:
         print(kv)
 
 **Iterate** over keys with given **prefix**
 
 .. sourcecode:: python
 
-    kvs = yield etcd.get(KeySet(b'mykey', prefix=True))
-    for kv in kvs:
+    result = yield etcd.get(KeySet(b'mykey', prefix=True))
+    for kv in result.kvs:
         print(kv)
 
 Deleting keys
