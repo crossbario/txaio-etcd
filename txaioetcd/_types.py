@@ -798,7 +798,7 @@ class OpDel(Op):
         }
 
         if self.return_previous:
-            obj[u'prev_kv'] = True
+            obj[u'request_delete_range'][u'prev_kv'] = True
 
         return obj
 
