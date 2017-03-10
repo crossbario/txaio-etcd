@@ -27,10 +27,6 @@
 
 from __future__ import absolute_import
 
-from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
-    Revision, Error, Failed, Success, Range, Lease
-
-from txaioetcd._types import _increment_last_byte
 
 __all__ = (
     'Client',

@@ -28,17 +28,14 @@
 from __future__ import absolute_import
 
 import json
-import binascii
+import base64
 
 import six
-
-import txaio
-txaio.use_twisted()
 
 from twisted.internet.defer import Deferred, succeed, inlineCallbacks, returnValue, CancelledError
 from twisted.internet import protocol
 from twisted.web.client import Agent, HTTPConnectionPool
-from twisted.web.iweb import IBodyProducer, UNKNOWN_LENGTH
+from twisted.web.iweb import UNKNOWN_LENGTH
 from twisted.web.http_headers import Headers
 
 import treq
@@ -47,6 +44,10 @@ from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
     Revision, Error, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
+
+import txaio
+txaio.use_twisted()
+
 
 __all__ = (
     'Client',
@@ -64,14 +65,14 @@ class _BufferedSender(object):
         self.body = body
         self.length = len(body)
 
-    def startProducing(self, consumer):
+    def startProducing(self, consumer):  # noqa
         consumer.write(self.body)
         return succeed(None)
 
-    def pauseProducing(self):
+    def pauseProducing(self):  # noqa
         pass
 
-    def stopProducing(self):
+    def stopProducing(self):  # noqa
         pass
 
 
@@ -83,10 +84,10 @@ class _BufferedReceiver(protocol.Protocol):
         self._buf = []
         self._done = done
 
-    def dataReceived(self, data):
+    def dataReceived(self, data):  # noqa
         self._buf.append(data)
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason):  # noqa
         # TODO: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         if self._done:
             self._done.callback(b''.join(self._buf))
@@ -121,7 +122,7 @@ class _StreamingReceiver(protocol.Protocol):
         self._cb = cb
         self._done = done
 
-    def dataReceived(self, data):
+    def dataReceived(self, data):  # noqa
         self._buf += data
         while True:
             i = self._buf.find(self.SEP)
@@ -134,7 +135,7 @@ class _StreamingReceiver(protocol.Protocol):
                 else:
                     for evt in obj[u'result'].get(u'events', []):
                         if u'kv' in evt:
-                            kv = KeyValue.parse(evt[u'kv'])
+                            kv = KeyValue._parse(evt[u'kv'])
                             try:
                                 self._cb(kv)
                             except Exception as e:
@@ -144,7 +145,7 @@ class _StreamingReceiver(protocol.Protocol):
             else:
                 break
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason):  # noqa
         self.log.debug('watch connection lost: {reason}', reason=reason)
         # FIXME: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         # watch connection lost: [Failure instance: Traceback (failure with no frames): <class 'twisted.web._newclient.ResponseFailed'>: [<twisted.python.failure.Failure twisted.internet.error.ConnectionLost: Connection to the other side was lost in a non-clean fashion: Connection lost.>, <twisted.python.failure.Failure twisted.web.http._DataLoss: Chunked decoder in 'CHUNK_LENGTH' state, still expecting more data to get to 'FINISHED' state.>]
@@ -165,8 +166,11 @@ class Client(object):
     """
 
     log = txaio.make_logger()
+    """
+    Logger object.
+    """
 
-    REQ_HEADERS = {
+    _REQ_HEADERS = {
         'Content-Type': ['application/json']
     }
     """
@@ -174,7 +178,7 @@ class Client(object):
     gRPC HTTP gateway endpoint of etcd.
     """
 
-    def __init__(self, reactor, url, pool=None):
+    def __init__(self, reactor, url, pool=None, timeout=None, connect_timeout=None):
         """
 
         :param rector: Twisted reactor to use.
@@ -185,23 +189,30 @@ class Client(object):
 
         :param pool: Twisted Web agent connection pool
         :type pool:
+
+        :param timeout: If given, a global request timeout used for all
+            requests to etcd.
+        :type timeout: float or None
+
+        :param connect_timeout: If given, a global connection timeout used when
+            opening a new HTTP connection to etcd.
+        :type connect_timeout: float or None
         """
         if type(url) != six.text_type:
             raise TypeError('url must be of type unicode, was {}'.format(type(url)))
         self._url = url
+        self._timeout = timeout
         self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
         self._pool._factory.noisy = False
-        self._agent = Agent(reactor, connectTimeout=10, pool=self._pool)
+        self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
 
     @inlineCallbacks
-    def status(self):
+    def status(self, timeout=None):
         """
         Get etcd status.
 
-        URL:     /v3alpha/maintenance/status
-
         :returns: The current etcd cluster status.
-        :rtype: instance of txaioetcd.Status
+        :rtype: instance of :class:`txaioetcd.Status`
         """
         url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
         obj = {
@@ -209,23 +220,21 @@ class Client(object):
         }
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        status = Status.parse(obj)
+        status = Status._parse(obj)
 
         returnValue(status)
 
     @inlineCallbacks
-    def set(self, key, value, lease=None, return_previous=None):
+    def set(self, key, value, lease=None, return_previous=None, timeout=None):
         """
         Set the value for the key in the key-value store.
 
         Setting a value on a key increments the revision
         of the key-value store and generates one event in
         the event history.
-
-        URL:     /v3alpha/kv/put
 
         :param key: key is the key, in bytes, to put into
             the key-value store.
@@ -237,13 +246,13 @@ class Client(object):
 
         :param lease: Lease to associate the key in the
             key-value store with.
-        :type lease: instance of Lease or None
+        :type lease: instance of :class:`txaioetcd.Lease` or None
 
         :param return_previous: If set, return the previous key-value.
         :type return_previous: bool or None
 
         :returns: Revision info
-        :rtype: instance of Revision
+        :rtype: instance of :class:`txaioetcd.Revision`
         """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes, not {}'.format(type(key)))
@@ -259,8 +268,8 @@ class Client(object):
 
         url = u'{}/v3alpha/kv/put'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key).decode(),
-            u'value': binascii.b2a_base64(value).decode()
+            u'key': base64.b64encode(key).decode(),
+            u'value': base64.b64encode(value).decode()
         }
         if return_previous:
             obj[u'prev_kv'] = True
@@ -269,10 +278,10 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        revision = Revision.parse(obj)
+        revision = Revision._parse(obj)
 
         returnValue(revision)
 
@@ -288,20 +297,20 @@ class Client(object):
             revision=None,
             serializable=None,
             sort_order=None,
-            sort_target=None):
+            sort_target=None,
+            timeout=None):
         """
         Range gets the keys in the range from the key-value store.
 
-        URL:    /v3alpha/kv/range
-
-        :param key: key is the first key for the range. If range_end is not given, the request only looks up key.
+        :param key: key is the first key for the range. If range_end is not given,
+            the request only looks up key.
         :type key: bytes
 
         :param range_end: range_end is the upper bound on the requested range
-            [key, range_end).\nIf range_end is '\\0', the range is all keys \u003e= key.
+            [key, range_end). If range_end is ``\\0``, the range is all keys ``\u003e=`` key.
             If the range_end is one bit larger than the given key, then the range requests
-            get the all keys with the prefix (the given key).\nIf both key and range_end
-            are '\\0', then range requests returns all keys.
+            get the all keys with the prefix (the given key). If both key and range_end
+            are ``\\0``, then range requests returns all keys.
         :type range_end: bytes
 
         :param prefix: If set, and no range_end is given, compute range_end from key prefix.
@@ -316,16 +325,20 @@ class Client(object):
         :param limit: limit is a limit on the number of keys returned for the request.
         :type limit: int
 
-        :param max_create_revision: max_create_revision is the upper bound for returned key create revisions; all keys with\ngreater create revisions will be filtered away.
+        :param max_create_revision: max_create_revision is the upper bound for returned
+            key create revisions; all keys with greater create revisions will be filtered away.
         :type max_create_revision: int
 
-        :param max_mod_revision: max_mod_revision is the upper bound for returned key mod revisions; all keys with\ngreater mod revisions will be filtered away.
+        :param max_mod_revision: max_mod_revision is the upper bound for returned key
+            mod revisions; all keys with greater mod revisions will be filtered away.
         :type max_mod_revision: int
 
-        :param min_create_revision: min_create_revision is the lower bound for returned key create revisions; all keys with\nlesser create trevisions will be filtered away.
+        :param min_create_revision: min_create_revision is the lower bound for returned
+            key create revisions; all keys with lesser create trevisions will be filtered away.
         :type min_create_revision: int
 
-        :param min_mod_revision: min_mod_revision is the lower bound for returned key mod revisions; all keys with\nlesser mod revisions will be filtered away.
+        :param min_mod_revision: min_mod_revision is the lower bound for returned key
+            mod revisions; all keys with lesser mod revisions will be filtered away.
         :type min_min_revision: int
 
         :param revision: revision is the point-in-time of the key-value store to use for the
@@ -338,8 +351,8 @@ class Client(object):
             member-local reads. Range requests are linearizable by default; linearizable
             requests have higher latency and lower throughput than serializable requests
             but reflect the current consensus of the cluster. For better performance, in
-            exchange for possible stale reads,\na serializable range request is served
-            locally without needing to reach consensus\nwith other nodes in the cluster.
+            exchange for possible stale reads, a serializable range request is served
+            locally without needing to reach consensus with other nodes in the cluster.
         :type serializable: bool
 
         :param sort_order:
@@ -355,47 +368,45 @@ class Client(object):
         else:
             raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
 
-        if key.type == KeySet.SINGLE:
+        if key.type == KeySet._SINGLE:
             range_end = None
-        elif key.type == KeySet.PREFIX:
+        elif key.type == KeySet._PREFIX:
             range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet.RANGE:
+        elif key.type == KeySet._RANGE:
             range_end = key.range_end
         else:
             raise Exception('logic error')
 
         url = u'{}/v3alpha/kv/range'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key.key).decode()
+            u'key': base64.b64encode(key.key).decode()
         }
         if range_end:
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+            obj[u'range_end'] = base64.b64encode(range_end).decode()
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        result = Range.parse(obj)
-        count = int(obj.get(u'count', 0))
+        result = Range._parse(obj)
+        # count = int(obj.get(u'count', 0))
 
         returnValue(result)
 
     @inlineCallbacks
-    def delete(self, key, return_previous=None):
+    def delete(self, key, return_previous=None, timeout=None):
         """
         Delete value(s) from etcd.
 
-        URL:     /v3alpha/kv/deleterange
-
         :param key: key is the first key to delete in the range.
-        :type key: bytes or KeySet
+        :type key: bytes or instance of :class:`txaioetcd.KeySet`
 
         :param return_previous: If enabled, return the deleted key-value pairs
         :type return_previous: bool or None
 
         :returns: Deletion info
-        :rtype: instance of txaioetcd.Deleted
+        :rtype: instance of :class:`txaioetcd.Deleted`
         """
         if type(key) == six.binary_type:
             key = KeySet(key)
@@ -407,18 +418,18 @@ class Client(object):
         if return_previous is not None and type(return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
 
-        if key.type == KeySet.SINGLE:
+        if key.type == KeySet._SINGLE:
             range_end = None
-        elif key.type == KeySet.PREFIX:
+        elif key.type == KeySet._PREFIX:
             range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet.RANGE:
+        elif key.type == KeySet._RANGE:
             range_end = key.range_end
         else:
             raise Exception('logic error')
 
         url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key.key).decode(),
+            u'key': base64.b64encode(key.key).decode(),
         }
         if range_end:
             # range_end is the key following the last key to delete
@@ -430,7 +441,7 @@ class Client(object):
             # If range_end is '\\0', the range is all keys greater
             # than or equal to the key argument.
             #
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+            obj[u'range_end'] = base64.b64encode(range_end).decode()
 
         if return_previous:
             # If prev_kv is set, etcd gets the previous key-value pairs
@@ -442,10 +453,10 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        deleted = Deleted.parse(obj)
+        deleted = Deleted._parse(obj)
 
         returnValue(deleted)
 
@@ -453,20 +464,18 @@ class Client(object):
         """
         Watch one or more keys or key sets and invoke a callback.
 
-        Watch watches for events happening or that have happened.
-        The entire event history can be watched starting from the
-        last compaction revision.
-
-        URL:     /v3alpha/watch
+        Watch watches for events happening or that have happened. The entire event history
+        can be watched starting from the last compaction revision.
 
         :param keys: Watch these keys / key sets.
-        :type keys: list of bytes or KeySets
+        :type keys: list of bytes or list of instance of :class:`txaioetcd.KeySet`
+
         :param on_watch: The callback to invoke upon receiving
             a watch event.
         :type on_watch: callable
+
         :param start_revision: start_revision is an optional
-            revision to watch from (inclusive). No start_revision
-            is \"now\".
+            revision to watch from (inclusive). No start_revision is "now".
         :type start_revision: int
         """
         d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
@@ -496,11 +505,11 @@ class Client(object):
             else:
                 raise TypeError('key must be binary string or KeySet, not {}'.format(type(key)))
 
-            if key.type == KeySet.SINGLE:
+            if key.type == KeySet._SINGLE:
                 range_end = None
-            elif key.type == KeySet.PREFIX:
+            elif key.type == KeySet._PREFIX:
                 range_end = _increment_last_byte(key.key)
-            elif key.type == KeySet.RANGE:
+            elif key.type == KeySet._RANGE:
                 range_end = key.range_end
             else:
                 raise Exception('logic error')
@@ -508,7 +517,7 @@ class Client(object):
             obj = {
                 'create_request': {
                     u'start_revision': start_revision,
-                    u'key': binascii.b2a_base64(key.key).decode(),
+                    u'key': base64.b64encode(key.key).decode(),
 
                     # range_end is the end of the range [key, range_end) to watch.
                     # If range_end is not given,\nonly the key argument is watched.
@@ -527,7 +536,7 @@ class Client(object):
                 }
             }
             if range_end:
-                obj[u'create_request'][u'range_end'] = binascii.b2a_base64(range_end).decode()
+                obj[u'create_request'][u'range_end'] = base64.b64encode(range_end).decode()
 
             if filters:
                 obj[u'create_request'][u'filters'] = filters
@@ -565,7 +574,7 @@ class Client(object):
         return d
 
     @inlineCallbacks
-    def submit(self, txn):
+    def submit(self, txn, timeout=None):
         """
         Submit a transaction.
 
@@ -604,23 +613,26 @@ class Client(object):
            executed if guard evaluates to false.
 
         :param txn: The transaction to submit.
-        :type txn: Transaction object
-        :returns: An instance of Success or an exception of Failed or Error
-        :rtype: Success, Failed, Error
+        :type txn: instance of :class:`txaioetcd.Transaction`
+
+        :returns: An instance of :class:`txaioetcd.Success` or an exception
+            of :class:`txioetcd.Failed` or :class:`txaioetcd.Error`
+        :rtype: instance of :class:`txaioetcd.Success`,
+            :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
-        obj = txn.marshal()
+        obj = txn._marshal()
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         if u'error' in obj:
-            error = Error.parse(obj)
+            error = Error._parse(obj)
             raise error
 
         if u'header' in obj:
-            header = Header.parse(obj[u'header'])
+            header = Header._parse(obj[u'header'])
         else:
             header = None
 
@@ -632,11 +644,11 @@ class Client(object):
             first = list(r.keys())[0]
 
             if first == u'response_put':
-                re = Revision.parse(r[u'response_put'])
+                re = Revision._parse(r[u'response_put'])
             elif first == u'response_delete_range':
-                re = Deleted.parse(r[u'response_delete_range'])
+                re = Deleted._parse(r[u'response_delete_range'])
             elif first == u'response_range':
-                re = Range.parse(r[u'response_range'])
+                re = Range._parse(r[u'response_range'])
             else:
                 raise Exception('response item "{}" bogus or not implemented'.format(first))
 
@@ -648,26 +660,26 @@ class Client(object):
             raise Failed(header, responses)
 
     @inlineCallbacks
-    def lease(self, time_to_live, lease_id=None):
+    def lease(self, time_to_live, lease_id=None, timeout=None):
         """
-        LeaseGrant creates a lease which expires if the server does not
-        receive a keepAlive within a given time to live period.
+        Creates a lease which expires if the server does not
+        receive a keep alive within a given time to live period.
 
         All keys attached to the lease will be expired and deleted if
         the lease expires.
 
         Each expired key generates a delete event in the event history.
 
-        HTTP/POST URL: /v3alpha/lease/grant
-
         :param time_to_live: TTL is the advisory time-to-live in seconds.
         :type time_to_live: int
+
         :param lease_id: ID is the requested ID for the lease.
             If ID is None, the lessor (etcd) chooses an ID.
         :type lease_id: int or None
+
         :returns: A lease object representing the created lease. This
             can be used for refreshing or revoking the least etc.
-        :rtype: Lease object
+        :rtype: instance of :class:`txaioetcd.Lease`
         """
         if lease_id is not None and type(lease_id) not in six.integer_types:
             raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
@@ -686,9 +698,9 @@ class Client(object):
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        lease = Lease.parse(self, obj)
+        lease = Lease._parse(self, obj)
 
         returnValue(lease)
