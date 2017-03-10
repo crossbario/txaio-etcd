@@ -27,6 +27,7 @@
 from __future__ import absolute_import
 
 import binascii
+import base64
 
 import six
 
@@ -128,7 +129,7 @@ class KeySet(object):
 
     def _marshal(self):
         obj = {
-            u'key': binascii.b2a_base64(self.key).decode()
+            u'key': base64.b64encode(self.key).decode()
         }
 
         if self.type == KeySet.SINGLE:
@@ -141,7 +142,7 @@ class KeySet(object):
             raise Exception('logic error')
 
         if range_end:
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+            obj[u'range_end'] = base64.b64encode(range_end).decode()
 
         return obj
 
@@ -187,8 +188,8 @@ class KeyValue(object):
         #     'mod_revision': '357'
         # }
 
-        key = binascii.a2b_base64(obj[u'key']) if u'key' in obj else None
-        value = binascii.a2b_base64(obj[u'value']) if u'value' in obj else None
+        key = base64.b64decode(obj[u'key']) if u'key' in obj else None
+        value = base64.b64decode(obj[u'value']) if u'value' in obj else None
         version = int(obj[u'version']) if u'version' in obj else None
         create_revision = int(obj[u'create_revision']) if u'create_revision' in obj else None
         mod_revision = int(obj[u'mod_revision']) if u'mod_revision' in obj else None
@@ -467,7 +468,7 @@ class Comp(object):
 
     def _marshal(self):
         obj = {
-            u'key': binascii.b2a_base64(self.key).decode(),
+            u'key': base64.b64encode(self.key).decode(),
             u'result': Comp.OPERATORS[self.compare]
         }
         return obj
@@ -501,7 +502,7 @@ class CompValue(Comp):
     def _marshal(self):
         obj = Comp.marshal(self)
         obj[u'target'] = u'VALUE'  # CompareCompareTarget
-        obj[u'value'] = binascii.b2a_base64(self.value).decode()
+        obj[u'value'] = base64.b64encode(self.value).decode()
         return obj
 
     def __str__(self):
@@ -793,8 +794,8 @@ class OpSet(Op):
     def _marshal(self):
         obj = {
             u'request_put': {
-                u'key': binascii.b2a_base64(self.key).decode(),
-                u'value': binascii.b2a_base64(self.value).decode()
+                u'key': base64.b64encode(self.key).decode(),
+                u'value': base64.b64encode(self.value).decode()
             }
         }
 

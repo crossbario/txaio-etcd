@@ -28,7 +28,7 @@
 from __future__ import absolute_import
 
 import json
-import binascii
+import base64
 
 import six
 
@@ -201,8 +201,6 @@ class Client(object):
         """
         Get etcd status.
 
-        URL:     /v3alpha/maintenance/status
-
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
@@ -228,8 +226,6 @@ class Client(object):
         of the key-value store and generates one event in
         the event history.
 
-        URL:     /v3alpha/kv/put
-
         :param key: key is the key, in bytes, to put into
             the key-value store.
         :type key: bytes
@@ -240,13 +236,13 @@ class Client(object):
 
         :param lease: Lease to associate the key in the
             key-value store with.
-        :type lease: instance of Lease or None
+        :type lease: instance of :class:`txaioetcd.Lease` or None
 
         :param return_previous: If set, return the previous key-value.
         :type return_previous: bool or None
 
         :returns: Revision info
-        :rtype: instance of Revision
+        :rtype: instance of :class:`txaioetcd.Revision`
         """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes, not {}'.format(type(key)))
@@ -262,8 +258,8 @@ class Client(object):
 
         url = u'{}/v3alpha/kv/put'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key).decode(),
-            u'value': binascii.b2a_base64(value).decode()
+            u'key': base64.b64encode(key).decode(),
+            u'value': base64.b64encode(value).decode()
         }
         if return_previous:
             obj[u'prev_kv'] = True
@@ -372,10 +368,10 @@ class Client(object):
 
         url = u'{}/v3alpha/kv/range'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key.key).decode()
+            u'key': base64.b64encode(key.key).decode()
         }
         if range_end:
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+            obj[u'range_end'] = base64.b64encode(range_end).decode()
 
         data = json.dumps(obj).encode('utf8')
 
@@ -392,16 +388,14 @@ class Client(object):
         """
         Delete value(s) from etcd.
 
-        URL:     /v3alpha/kv/deleterange
-
         :param key: key is the first key to delete in the range.
-        :type key: bytes or KeySet
+        :type key: bytes or instance of :class:`txaioetcd.KeySet`
 
         :param return_previous: If enabled, return the deleted key-value pairs
         :type return_previous: bool or None
 
         :returns: Deletion info
-        :rtype: instance of txaioetcd.Deleted
+        :rtype: instance of :class:`txaioetcd.Deleted`
         """
         if type(key) == six.binary_type:
             key = KeySet(key)
@@ -424,7 +418,7 @@ class Client(object):
 
         url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
         obj = {
-            u'key': binascii.b2a_base64(key.key).decode(),
+            u'key': base64.b64encode(key.key).decode(),
         }
         if range_end:
             # range_end is the key following the last key to delete
@@ -436,7 +430,7 @@ class Client(object):
             # If range_end is '\\0', the range is all keys greater
             # than or equal to the key argument.
             #
-            obj[u'range_end'] = binascii.b2a_base64(range_end).decode()
+            obj[u'range_end'] = base64.b64encode(range_end).decode()
 
         if return_previous:
             # If prev_kv is set, etcd gets the previous key-value pairs
@@ -459,20 +453,18 @@ class Client(object):
         """
         Watch one or more keys or key sets and invoke a callback.
 
-        Watch watches for events happening or that have happened.
-        The entire event history can be watched starting from the
-        last compaction revision.
-
-        URL:     /v3alpha/watch
+        Watch watches for events happening or that have happened. The entire event history
+        can be watched starting from the last compaction revision.
 
         :param keys: Watch these keys / key sets.
-        :type keys: list of bytes or KeySets
+        :type keys: list of bytes or list of instance of :class:`txaioetcd.KeySet`
+
         :param on_watch: The callback to invoke upon receiving
             a watch event.
         :type on_watch: callable
+
         :param start_revision: start_revision is an optional
-            revision to watch from (inclusive). No start_revision
-            is \"now\".
+            revision to watch from (inclusive). No start_revision is "now".
         :type start_revision: int
         """
         d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
@@ -514,7 +506,7 @@ class Client(object):
             obj = {
                 'create_request': {
                     u'start_revision': start_revision,
-                    u'key': binascii.b2a_base64(key.key).decode(),
+                    u'key': base64.b64encode(key.key).decode(),
 
                     # range_end is the end of the range [key, range_end) to watch.
                     # If range_end is not given,\nonly the key argument is watched.
@@ -533,7 +525,7 @@ class Client(object):
                 }
             }
             if range_end:
-                obj[u'create_request'][u'range_end'] = binascii.b2a_base64(range_end).decode()
+                obj[u'create_request'][u'range_end'] = base64.b64encode(range_end).decode()
 
             if filters:
                 obj[u'create_request'][u'filters'] = filters
@@ -610,9 +602,12 @@ class Client(object):
            executed if guard evaluates to false.
 
         :param txn: The transaction to submit.
-        :type txn: Transaction object
-        :returns: An instance of Success or an exception of Failed or Error
-        :rtype: Success, Failed, Error
+        :type txn: instance of :class:`txaioetcd.Transaction`
+
+        :returns: An instance of :class:`txaioetcd.Success` or an exception
+            of :class:`txioetcd.Failed` or :class:`txaioetcd.Error`
+        :rtype: instance of :class:`txaioetcd.Success`,
+            :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
         obj = txn._marshal()
@@ -656,24 +651,24 @@ class Client(object):
     @inlineCallbacks
     def lease(self, time_to_live, lease_id=None):
         """
-        LeaseGrant creates a lease which expires if the server does not
-        receive a keepAlive within a given time to live period.
+        Creates a lease which expires if the server does not
+        receive a keep alive within a given time to live period.
 
         All keys attached to the lease will be expired and deleted if
         the lease expires.
 
         Each expired key generates a delete event in the event history.
 
-        HTTP/POST URL: /v3alpha/lease/grant
-
         :param time_to_live: TTL is the advisory time-to-live in seconds.
         :type time_to_live: int
+
         :param lease_id: ID is the requested ID for the lease.
             If ID is None, the lessor (etcd) chooses an ID.
         :type lease_id: int or None
+
         :returns: A lease object representing the created lease. This
             can be used for refreshing or revoking the least etc.
-        :rtype: Lease object
+        :rtype: instance of :class:`txaioetcd.Lease`
         """
         if lease_id is not None and type(lease_id) not in six.integer_types:
             raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
