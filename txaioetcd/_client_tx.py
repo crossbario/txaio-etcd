@@ -211,6 +211,9 @@ class Client(object):
         """
         Get etcd status.
 
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
+
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
@@ -250,6 +253,9 @@ class Client(object):
 
         :param return_previous: If set, return the previous key-value.
         :type return_previous: bool or None
+
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
 
         :returns: Revision info
         :rtype: instance of :class:`txaioetcd.Revision`
@@ -355,11 +361,16 @@ class Client(object):
             locally without needing to reach consensus with other nodes in the cluster.
         :type serializable: bool
 
-        :param sort_order:
-        :type sort_order:
+        :param sort_order: Sort order for returned KVs,
+            one of :class:`txaioetcd.OpGet.SORT_ORDERS`.
+        :type sort_order: str
 
-        :param sort_target:
-        :type sort_taget:
+        :param sort_target: Sort target for sorting returned KVs,
+            one of :class:`txaioetcd.OpGet.SORT_TARGETS`.
+        :type sort_taget: str or None
+
+        :param timeout: Request timeout in seconds.
+        :type timeout: int or None
         """
         if type(key) == six.binary_type:
             key = KeySet(key)
@@ -404,6 +415,9 @@ class Client(object):
 
         :param return_previous: If enabled, return the deleted key-value pairs
         :type return_previous: bool or None
+
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
 
         :returns: Deletion info
         :rtype: instance of :class:`txaioetcd.Deleted`
@@ -615,6 +629,9 @@ class Client(object):
         :param txn: The transaction to submit.
         :type txn: instance of :class:`txaioetcd.Transaction`
 
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
+
         :returns: An instance of :class:`txaioetcd.Success` or an exception
             of :class:`txioetcd.Failed` or :class:`txaioetcd.Error`
         :rtype: instance of :class:`txaioetcd.Success`,
@@ -676,6 +693,9 @@ class Client(object):
         :param lease_id: ID is the requested ID for the lease.
             If ID is None, the lessor (etcd) chooses an ID.
         :type lease_id: int or None
+
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
 
         :returns: A lease object representing the created lease. This
             can be used for refreshing or revoking the least etc.
