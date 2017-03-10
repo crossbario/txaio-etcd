@@ -31,8 +31,6 @@ import base64
 
 import six
 
-from txaioetcd._lease import Lease
-
 
 __all__ = (
     'KeySet',
@@ -790,6 +788,8 @@ class OpSet(Op):
         if type(value) != six.binary_type:
             raise TypeError('value must be bytes type, not {}'.format(type(value)))
 
+        # import here to break circular dep between _type.py and _lease.py
+        from txaioetcd._lease import Lease
         if lease is not None and not isinstance(lease, Lease):
             raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
 

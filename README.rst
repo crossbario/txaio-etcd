@@ -1,6 +1,9 @@
 txaioetcd - etcd for Twisted
 ============================
 
+| |Version| |Docs|
+
+
 `etcd <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications. etcd describes itself as "distributed reliable key-value store for the most critical data of a distributed system".
 
 `Twisted <http://twistedmatrix.com/>`_ is an advanced network framework to implement networked and distributed applications.
@@ -431,3 +434,10 @@ etcd has a large number of administrative procedures as part of the API like lis
 These API parts of etcd are currently not exposed in txaioetcd - and I am not completely convinced it would necessary given there is `etcdctl` or even desirable from a security perspective, as it exposes sensitive API at the app level.
 
 But yes, it is missing completely.
+
+
+.. |Version| image:: https://img.shields.io/pypi/v/txaioetcd.svg
+   :target: https://pypi.python.org/pypi/txaioetcd
+
+.. |Docs| image:: https://readthedocs.org/projects/txaioetcd/badge/?version=latest
+   :target: https://txaioetcd.readthedocs.io/en/latest/
