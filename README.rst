@@ -439,5 +439,5 @@ But yes, it is missing completely.
 .. |Version| image:: https://img.shields.io/pypi/v/txaioetcd.svg
    :target: https://pypi.python.org/pypi/txaioetcd
 
-.. |Docs| image:: https://readthedocs.org/projects/txaioetcd/badge/?version=latest
-   :target: https://txaioetcd.readthedocs.io/en/latest/
+.. |Docs| image:: https://readthedocs.org/projects/txaio-etcd/badge/?version=latest
+   :target: https://txaio-etcd.readthedocs.io/en/latest/
