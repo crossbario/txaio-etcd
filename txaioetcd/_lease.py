@@ -43,6 +43,16 @@ __all__ = (
 
 class Lease(object):
     """
+    An etcd lease.
+
+    :ivar header:
+    :vartype header:
+
+    :ivar time_to_live:
+    :vartype time_to_live:
+
+    :ivar lease_id:
+    :vartype lease_id:
     """
 
     def __init__(self, client, header, time_to_live, lease_id=None):
@@ -56,19 +66,18 @@ class Lease(object):
         return u'Lease(client={}, expired={}, header={}, time_to_live={}, lease_id={})'.format(self._client, self._expired, self.header, self.time_to_live, self.lease_id)
 
     @staticmethod
-    def parse(client, obj):
-        """
-        Parse object and create instance.
+    def _parse(client, obj):
+        # {
+        #     'ID': '1780709837822722771',
+        #     'TTL': '5',
+        #     'header': {
+        #         'cluster_id': '12111318200661820288',
+        #         'member_id': '13006018358126188726',
+        #         'raft_term': '2',
+        #         'revision': '119'
+        #     }
+        # }
 
-        .. code-block:: json
-
-            {'ID': '1780709837822722771',
-             'TTL': '5',
-             'header': {'cluster_id': '12111318200661820288',
-                        'member_id': '13006018358126188726',
-                        'raft_term': '2',
-                        'revision': '119'}}
-        """
         header = Header.parse(obj[u'header']) if u'header' in obj else None
         time_to_live = int(obj[u'TTL'])
         lease_id = int(obj[u'ID'])
@@ -77,9 +86,10 @@ class Lease(object):
     @inlineCallbacks
     def remaining(self):
         """
-        Retrieves lease information.
+        Get the remaining time-to-live of this lease.
 
-        URL: /v3alpha/kv/lease/timetolive
+        :returns: TTL in seconds.
+        :rtype: int
         """
         if self._expired:
             raise Expired()
@@ -109,7 +119,8 @@ class Lease(object):
         """
         Retrieves keys associated with the lease.
 
-        URL: /v3alpha/kv/lease/timetolive
+        :returns: The keys.
+        :rtype: list of bytes
         """
         if self._expired:
             raise Expired()
@@ -142,7 +153,8 @@ class Lease(object):
         Revokes a lease. All keys attached to the lease will expire
         and be deleted.
 
-        URL: /v3alpha/kv/lease/revoke
+        :returns: Response header.
+        :rtype: instance of :class:`txaioetcd.Header`
         """
         if self._expired:
             raise Expired()
@@ -172,7 +184,8 @@ class Lease(object):
         to the server and streaming keep alive responses from the server to
         the client.
 
-        URL: /v3alpha/lease/keepalive
+        :returns: Response header.
+        :rtype: instance of :class:`txaioetcd.Header`
         """
         if self._expired:
             raise Expired()

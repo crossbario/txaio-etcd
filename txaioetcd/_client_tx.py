@@ -134,7 +134,7 @@ class _StreamingReceiver(protocol.Protocol):
                 else:
                     for evt in obj[u'result'].get(u'events', []):
                         if u'kv' in evt:
-                            kv = KeyValue.parse(evt[u'kv'])
+                            kv = KeyValue._parse(evt[u'kv'])
                             try:
                                 self._cb(kv)
                             except Exception as e:
@@ -165,8 +165,11 @@ class Client(object):
     """
 
     log = txaio.make_logger()
+    """
+    Logger object.
+    """
 
-    REQ_HEADERS = {
+    _REQ_HEADERS = {
         'Content-Type': ['application/json']
     }
     """
@@ -201,7 +204,7 @@ class Client(object):
         URL:     /v3alpha/maintenance/status
 
         :returns: The current etcd cluster status.
-        :rtype: instance of txaioetcd.Status
+        :rtype: instance of :class:`txaioetcd.Status`
         """
         url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
         obj = {
@@ -209,10 +212,10 @@ class Client(object):
         }
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        status = Status.parse(obj)
+        status = Status._parse(obj)
 
         returnValue(status)
 
@@ -269,10 +272,10 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        revision = Revision.parse(obj)
+        revision = Revision._parse(obj)
 
         returnValue(revision)
 
@@ -292,16 +295,15 @@ class Client(object):
         """
         Range gets the keys in the range from the key-value store.
 
-        URL:    /v3alpha/kv/range
-
-        :param key: key is the first key for the range. If range_end is not given, the request only looks up key.
+        :param key: key is the first key for the range. If range_end is not given,
+            the request only looks up key.
         :type key: bytes
 
         :param range_end: range_end is the upper bound on the requested range
-            [key, range_end).\nIf range_end is '\\0', the range is all keys \u003e= key.
+            [key, range_end). If range_end is ``\\0``, the range is all keys ``\u003e=`` key.
             If the range_end is one bit larger than the given key, then the range requests
-            get the all keys with the prefix (the given key).\nIf both key and range_end
-            are '\\0', then range requests returns all keys.
+            get the all keys with the prefix (the given key). If both key and range_end
+            are ``\\0``, then range requests returns all keys.
         :type range_end: bytes
 
         :param prefix: If set, and no range_end is given, compute range_end from key prefix.
@@ -316,16 +318,20 @@ class Client(object):
         :param limit: limit is a limit on the number of keys returned for the request.
         :type limit: int
 
-        :param max_create_revision: max_create_revision is the upper bound for returned key create revisions; all keys with\ngreater create revisions will be filtered away.
+        :param max_create_revision: max_create_revision is the upper bound for returned
+            key create revisions; all keys with greater create revisions will be filtered away.
         :type max_create_revision: int
 
-        :param max_mod_revision: max_mod_revision is the upper bound for returned key mod revisions; all keys with\ngreater mod revisions will be filtered away.
+        :param max_mod_revision: max_mod_revision is the upper bound for returned key
+            mod revisions; all keys with greater mod revisions will be filtered away.
         :type max_mod_revision: int
 
-        :param min_create_revision: min_create_revision is the lower bound for returned key create revisions; all keys with\nlesser create trevisions will be filtered away.
+        :param min_create_revision: min_create_revision is the lower bound for returned
+            key create revisions; all keys with lesser create trevisions will be filtered away.
         :type min_create_revision: int
 
-        :param min_mod_revision: min_mod_revision is the lower bound for returned key mod revisions; all keys with\nlesser mod revisions will be filtered away.
+        :param min_mod_revision: min_mod_revision is the lower bound for returned key
+            mod revisions; all keys with lesser mod revisions will be filtered away.
         :type min_min_revision: int
 
         :param revision: revision is the point-in-time of the key-value store to use for the
@@ -338,8 +344,8 @@ class Client(object):
             member-local reads. Range requests are linearizable by default; linearizable
             requests have higher latency and lower throughput than serializable requests
             but reflect the current consensus of the cluster. For better performance, in
-            exchange for possible stale reads,\na serializable range request is served
-            locally without needing to reach consensus\nwith other nodes in the cluster.
+            exchange for possible stale reads, a serializable range request is served
+            locally without needing to reach consensus with other nodes in the cluster.
         :type serializable: bool
 
         :param sort_order:
@@ -373,10 +379,10 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        result = Range.parse(obj)
+        result = Range._parse(obj)
         count = int(obj.get(u'count', 0))
 
         returnValue(result)
@@ -442,10 +448,10 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        deleted = Deleted.parse(obj)
+        deleted = Deleted._parse(obj)
 
         returnValue(deleted)
 
@@ -609,18 +615,18 @@ class Client(object):
         :rtype: Success, Failed, Error
         """
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
-        obj = txn.marshal()
+        obj = txn._marshal()
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
         if u'error' in obj:
-            error = Error.parse(obj)
+            error = Error._parse(obj)
             raise error
 
         if u'header' in obj:
-            header = Header.parse(obj[u'header'])
+            header = Header._parse(obj[u'header'])
         else:
             header = None
 
@@ -632,11 +638,11 @@ class Client(object):
             first = list(r.keys())[0]
 
             if first == u'response_put':
-                re = Revision.parse(r[u'response_put'])
+                re = Revision._parse(r[u'response_put'])
             elif first == u'response_delete_range':
-                re = Deleted.parse(r[u'response_delete_range'])
+                re = Deleted._parse(r[u'response_delete_range'])
             elif first == u'response_range':
-                re = Range.parse(r[u'response_range'])
+                re = Range._parse(r[u'response_range'])
             else:
                 raise Exception('response item "{}" bogus or not implemented'.format(first))
 
@@ -686,9 +692,9 @@ class Client(object):
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
 
-        response = yield treq.post(url, data, headers=self.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
         obj = yield treq.json_content(response)
 
-        lease = Lease.parse(self, obj)
+        lease = Lease._parse(self, obj)
 
         returnValue(lease)

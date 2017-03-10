@@ -34,6 +34,8 @@ with open('README.rst') as f:
     docstr = f.read()
 
 extras_require_dev = [
+    'sphinx',
+    'sphinx_rtd_theme',
     'twine',                            # Apache 2.0
 ]
 

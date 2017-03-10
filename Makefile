@@ -35,6 +35,7 @@ clean:
 	rm -rf ./test/.coverage.*.*
 	rm -rf ./docs/_build
 	rm -rf ./docs/_spelling
+	rm -f ./basic.spec
 	-find . -name "*.tar.gz" -type f -exec rm -f {} \;
 	-find . -name "*.egg" -type f -exec rm -f {} \;
 	-find . -name "*.pyc" -type f -exec rm -f {} \;

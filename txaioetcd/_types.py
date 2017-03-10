@@ -79,6 +79,15 @@ class KeySet(object):
     """
     Represents a set of etcd keys. Either a single key, a key range or
     all keys with a given prefix.
+
+    :ivar key: The key range start or the key prefix.
+    :vartype key: bytes
+
+    :ivar range_end: The key range end
+    :vartype range_end: bytes or None
+
+    :ivar prefix: If enabled, the key set is determined by prefix.
+    :vartype prefix: bool or None
     """
 
     SINGLE = u'single'
@@ -97,15 +106,6 @@ class KeySet(object):
     """
 
     def __init__(self, key, range_end=None, prefix=None):
-        """
-
-        :param key: The key range start or the key prefix.
-        :type key: bytes
-        :param range_end: The key range end
-        :type range_end: bytes or None
-        :param prefix: If enabled, the key set is determined by prefix.
-        :type prefix: bool or None
-        """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes type, not {}'.format(type(key)))
         if range_end is not None and type(range_end) != six.binary_type:
@@ -126,7 +126,7 @@ class KeySet(object):
         else:
             self.type = self.SINGLE
 
-    def marshal(self):
+    def _marshal(self):
         obj = {
             u'key': binascii.b2a_base64(self.key).decode()
         }
@@ -146,38 +146,31 @@ class KeySet(object):
         return obj
 
     def __str__(self):
-        return u'KeySet(key={}, range_end={}, prefix={})'.format(_maybe_text(self.key), _maybe_text(self.range_end), self.prefix)
+        return u'KeySet(type={}, key={}, range_end={}, prefix={})'.format(self.type, _maybe_text(self.key), _maybe_text(self.range_end), self.prefix)
 
 
 class KeyValue(object):
     """
     An etcd key-value.
 
-    .. code-block:: json
+    :ivar key: The key.
+    :vartype key: bytes
 
-        {
-            'key': 'bXlrZXkz',
-            'value': 'd29hOyk=',
-            'version': '1',
-            'create_revision': '357',
-            'mod_revision': '357'
-        }
+    :ivar value: The value.
+    :vartype value: bytes
+
+    :ivar version: Version of the key. A deletion resets the version to zero and any
+        modification of the key increases its version.
+    :vartype version: int
+
+    :ivar create_revision: Revision of last creation on this key.
+    :vartype create_revision: int
+
+    :ivar mod_revision: Revision of last modification on this key.
+    :vartype mod_revision: int
     """
 
     def __init__(self, key, value, version=None, create_revision=None, mod_revision=None):
-        """
-
-        :param key: The key.
-        :type key: bytes
-        :param value: The value.
-        :type value: bytes
-        :param version:
-        :type version:
-        :param create_revision:
-        :type create_revision:
-        :param mod_revision:
-        :type mod_revision
-        """
         self.key = key
         self.value = value
         self.version = version
@@ -185,7 +178,15 @@ class KeyValue(object):
         self.mod_revision = mod_revision
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
+        # {
+        #     'key': 'bXlrZXkz',
+        #     'value': 'd29hOyk=',
+        #     'version': '1',
+        #     'create_revision': '357',
+        #     'mod_revision': '357'
+        # }
+
         key = binascii.a2b_base64(obj[u'key']) if u'key' in obj else None
         value = binascii.a2b_base64(obj[u'value']) if u'value' in obj else None
         version = int(obj[u'version']) if u'version' in obj else None
@@ -199,17 +200,20 @@ class KeyValue(object):
 
 class Header(object):
     """
-    An etcd header.
+    An etcd response header.
 
-    .. code-block:: json
+    :ivar raft_term: Raft term when the request was applied.
+    :vartype raft_term: int
 
-        u'header':
-        {
-            u'raft_term': u'2',
-            u'revision': u'285',
-            u'cluster_id': u'243774308834426361',
-            u'member_id': u'17323375927490080838'
-        }
+    :ivar revision: Key-value store revision when the request was applied.
+    :vartype revision: int
+
+    :ivar cluster_id: ID of the cluster which sent the response.
+    :vartype cluster_id: int
+
+    :ivar member_id: ID of the cluster which sent the response.
+    :vartype member_id: int
+
     """
     def __init__(self, raft_term, revision, cluster_id, member_id):
         self.raft_term = raft_term
@@ -218,7 +222,14 @@ class Header(object):
         self.member_id = member_id
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
+        # u'header':
+        # {
+        #     u'raft_term': u'2',
+        #     u'revision': u'285',
+        #     u'cluster_id': u'243774308834426361',
+        #     u'member_id': u'17323375927490080838'
+        # }
         raft_term = int(obj[u'raft_term']) if u'raft_term' in obj else None
         revision = int(obj[u'revision']) if u'revision' in obj else None
         cluster_id = int(obj[u'cluster_id']) if u'cluster_id' in obj else None
@@ -231,24 +242,25 @@ class Header(object):
 
 class Status(object):
     """
-    etcd status.
+    etcd cluster status.
 
-    .. code-block:: json
+    :ivar version: Cluster protocol version used by the responding member.
+    :vartype version: str
 
-        {
-            u'raftTerm': u'2',
-            u'header':
-            {
-                u'raft_term': u'2',
-                u'revision': u'285',
-                u'cluster_id': u'243774308834426361',
-                u'member_id': u'17323375927490080838'
-            },
-            u'version': u'3.1.0',
-            u'raftIndex': u'288',
-            u'dbSize': u'57344',
-            u'leader': u'17323375927490080838'
-        }
+    :ivar dbSize: Size of the backend database, in bytes, of the responding member.
+    :vartype dbSize: int
+
+    :ivar leader: Member ID which the responding member believes is the current leader.
+    :vartype leader: int
+
+    :ivar header: Response header.
+    :vartype header: instance of :class:`txaioetcd.Header`
+
+    :ivar raftTerm: Current raft term of the responding member.
+    :vartype raftTerm: int
+
+    :ivar raftIndex: Current raft index of the responding member.
+    :vartype raftIndex: int
     """
     def __init__(self, version, dbSize, leader, header, raftTerm, raftIndex):
         self.version = version
@@ -259,7 +271,21 @@ class Status(object):
         self.raftIndex = raftIndex
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
+        # {
+        #     u'raftTerm': u'2',
+        #     u'header':
+        #     {
+        #         u'raft_term': u'2',
+        #         u'revision': u'285',
+        #         u'cluster_id': u'243774308834426361',
+        #         u'member_id': u'17323375927490080838'
+        #     },
+        #     u'version': u'3.1.0',
+        #     u'raftIndex': u'288',
+        #     u'dbSize': u'57344',
+        #     u'leader': u'17323375927490080838'
+        # }
         version = obj[u'version'] if u'version' in obj else None
         dbSize = int(obj[u'dbSize']) if u'dbSize' in obj else None
         leader = int(obj[u'leader']) if u'leader' in obj else None
@@ -276,61 +302,57 @@ class Deleted(object):
     """
     Info for key deleted from etcd.
 
-    .. code-block:: json
+    :ivar deleted: The number of deleted KVs.
+    :vartype deleted: int
 
-        {
-            u'deleted': u'1',
-            u'header':
-            {
-                u'raft_term': u'2',
-                u'revision': u'334',
-                u'cluster_id': u'243774308834426361',
-                u'member_id': u'17323375927490080838'
-            }
-        }
+    :ivar header: Response header.
+    :vartype header: instance of :class:`txaioetcd.Header`
 
-    or
-
-    .. code-block:: json
-
-        {
-            'deleted': '1',
-            'header':
-            {
-                'cluster_id': '15378991040070777582',
-                'member_id': '4884146582048902091',
-                'raft_term': '2',
-                'revision': '362'
-            },
-            'prev_kvs': [
-                {
-                    'create_revision': '357',
-                    'key': 'bXlrZXkz',
-                    'mod_revision': '357',
-                    'value': 'd29hOyk=',
-                    'version': '1'
-                }
-            ]
-        }
+    :ivar previous: Previous Key-Value pairs (if requested).
+    :vartype previous: list or None
     """
+
     def __init__(self, deleted, header, previous=None):
-        """
-
-        :param deleted:
-        :type deleted:
-
-        :param header:
-        :type header:
-
-        :param previous:
-        :type previous:
-        """
         self.deleted = deleted or 0
         self.header = header
         self.previous = previous
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
+
+        # {
+        #     u'deleted': u'1',
+        #     u'header':
+        #     {
+        #         u'raft_term': u'2',
+        #         u'revision': u'334',
+        #         u'cluster_id': u'243774308834426361',
+        #         u'member_id': u'17323375927490080838'
+        #     }
+        # }
+        #
+        # OR (previous KVs returned)
+        #
+        # {
+        #     'deleted': '1',
+        #     'header':
+        #     {
+        #         'cluster_id': '15378991040070777582',
+        #         'member_id': '4884146582048902091',
+        #         'raft_term': '2',
+        #         'revision': '362'
+        #     },
+        #     'prev_kvs': [
+        #         {
+        #             'create_revision': '357',
+        #             'key': 'bXlrZXkz',
+        #             'mod_revision': '357',
+        #             'value': 'd29hOyk=',
+        #             'version': '1'
+        #         }
+        #     ]
+        # }
+
         deleted = int(obj[u'deleted']) if u'deleted' in obj else None
         header = Header.parse(obj[u'header']) if u'header' in obj else None
         if u'prev_kvs' in obj:
@@ -350,40 +372,11 @@ class Revision(object):
     """
     Info from etcd for setting a key.
 
-    .. code-block:: json
+    :ivar header: Response header.
+    :vartype header: instance of :class:`txaioetcd.Header`
 
-        {
-            u'header':
-            {
-                u'raft_term': u'2',
-                u'revision': u'100',
-                u'cluster_id': u'243774308834426361',
-                u'member_id': u'17323375927490080838'
-            }
-        }
-
-    or
-
-    .. code-block:: json
-
-        {
-            u'header':
-            {
-                u'raft_term': u'2',
-                u'revision': u'102',
-                u'cluster_id': u'243774308834426361',
-                u'member_id': u'17323375927490080838'
-            },
-            u'prev_kv':
-            {
-                u'mod_revision': u'101',
-                u'value': u'YmFy',
-                u'create_revision': u'98',
-                u'version': u'4'
-                ,u'key': u'Zm9v'
-            }
-        }
-
+    :ivar previous: Previous KVs (if requested).
+    :vartype previous: list or None
     """
     def __init__(self, header, previous=None):
         """
@@ -398,7 +391,38 @@ class Revision(object):
         self.previous = previous
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
+
+        # {
+        #     u'header':
+        #     {
+        #         u'raft_term': u'2',
+        #         u'revision': u'100',
+        #         u'cluster_id': u'243774308834426361',
+        #         u'member_id': u'17323375927490080838'
+        #     }
+        # }
+        #
+        # OR
+        #
+        # {
+        #     u'header':
+        #     {
+        #         u'raft_term': u'2',
+        #         u'revision': u'102',
+        #         u'cluster_id': u'243774308834426361',
+        #         u'member_id': u'17323375927490080838'
+        #     },
+        #     u'prev_kv':
+        #     {
+        #         u'mod_revision': u'101',
+        #         u'value': u'YmFy',
+        #         u'create_revision': u'98',
+        #         u'version': u'4'
+        #         ,u'key': u'Zm9v'
+        #     }
+        # }
+
         header = Header.parse(obj[u'header']) if u'header' in obj else None
         if u'prev_kv' in obj:
             previous = KeyValue.parse(obj[u'prev_kv'])
@@ -413,6 +437,12 @@ class Revision(object):
 class Comp(object):
     """
     Base class for representing comparisons against a KV item.
+
+    :ivar key: The subject key for the comparison operation.
+    :vartype key: bytes
+
+    :ivar compare: The comparison operator to apply.
+    :vartype compare: str
     """
 
     OPERATORS = {
@@ -426,14 +456,6 @@ class Comp(object):
     """
 
     def __init__(self, key, compare):
-        """
-
-        :param key: The subject key for the comparison operation.
-        :type key: bytes
-
-        :param compare: The comparison operator to apply.
-        :type compare: str
-        """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes type, not {}'.format(type(key)))
 
@@ -443,7 +465,7 @@ class Comp(object):
         self.key = key
         self.compare = compare
 
-    def marshal(self):
+    def _marshal(self):
         obj = {
             u'key': binascii.b2a_base64(self.key).decode(),
             u'result': Comp.OPERATORS[self.compare]
@@ -457,20 +479,18 @@ class Comp(object):
 class CompValue(Comp):
     """
     Represents a comparison against a KV value.
+
+    :ivar key: The subject key for the comparison operation.
+    :vartype key: bytes
+
+    :ivar compare: The comparison operator to apply.
+    :vartype compare: str
+
+    :ivar value: The value to compare to.
+    :vartype value: bytes
     """
 
     def __init__(self, key, compare, value):
-        """
-
-        :param key: The subject key for the comparison operation.
-        :type key: bytes
-
-        :param compare: The comparison operator to apply.
-        :type compare: str
-
-        :param value: The value to compare to.
-        :type value: bytes
-        """
         Comp.__init__(self, key, compare)
 
         if type(value) != six.binary_type:
@@ -478,7 +498,7 @@ class CompValue(Comp):
 
         self.value = value
 
-    def marshal(self):
+    def _marshal(self):
         obj = Comp.marshal(self)
         obj[u'target'] = u'VALUE'  # CompareCompareTarget
         obj[u'value'] = binascii.b2a_base64(self.value).decode()
@@ -491,20 +511,18 @@ class CompValue(Comp):
 class CompVersion(Comp):
     """
     Represents a comparison against a KV version.
+
+    :ivar key: The subject key for the comparison operation.
+    :vartype key: bytes
+
+    :ivar compare: The comparison operator to apply.
+    :vartype compare: str
+
+    :ivar version: The value to compare to.
+    :vartype version: int
     """
 
     def __init__(self, key, compare, version):
-        """
-
-        :param key: The subject key for the comparison operation.
-        :type key: bytes
-
-        :param compare: The comparison operator to apply.
-        :type compare: str
-
-        :param version: The value to compare to.
-        :type version: int
-        """
         Comp.__init__(self, key, compare)
 
         if type(version) not in six.integer_types:
@@ -512,7 +530,7 @@ class CompVersion(Comp):
 
         self.version = version
 
-    def marshal(self):
+    def _marshal(self):
         obj = Comp.marshal(self)
         obj[u'target'] = u'VERSION'  # CompareCompareTarget
         obj[u'version'] = self.version
@@ -525,20 +543,18 @@ class CompVersion(Comp):
 class CompCreated(Comp):
     """
     Represents a comparison against a KV create_revision.
+
+    :ivar key: The subject key for the comparison operation.
+    :vartype key: bytes
+
+    :ivar compare: The comparison operator to apply.
+    :vartype compare: str
+
+    :ivar create_revision: The value to compare to.
+    :vartype create_revision: int
     """
 
     def __init__(self, key, compare, create_revision):
-        """
-
-        :param key: The subject key for the comparison operation.
-        :type key: bytes
-
-        :param compare: The comparison operator to apply.
-        :type compare: str
-
-        :param create_revision: The value to compare to.
-        :type create_revision: int
-        """
         Comp.__init__(self, key, compare)
 
         if type(create_revision) not in six.integer_types:
@@ -546,7 +562,7 @@ class CompCreated(Comp):
 
         self.create_revision = create_revision
 
-    def marshal(self):
+    def _marshal(self):
         obj = Comp.marshal(self)
         obj[u'target'] = u'CREATE'  # CompareCompareTarget
         obj[u'create_revision'] = self.create_revision
@@ -559,20 +575,18 @@ class CompCreated(Comp):
 class CompModified(Comp):
     """
     Represents a comparison against a KV mod_revision.
+
+    :ivar key: The subject key for the comparison operation.
+    :vartype key: bytes
+
+    :ivar compare: The comparison operator to apply.
+    :vartype compare: str
+
+    :ivar mod_revision: The value to compare to.
+    :vartype mod_revision: int
     """
 
     def __init__(self, key, compare, mod_revision):
-        """
-
-        :param key: The subject key for the comparison operation.
-        :type key: bytes
-
-        :param compare: The comparison operator to apply.
-        :type compare: str
-
-        :param mod_revision: The value to compare to.
-        :type mod_revision: int
-        """
         Comp.__init__(self, key, compare)
 
         if type(mod_revision) not in six.integer_types:
@@ -580,7 +594,7 @@ class CompModified(Comp):
 
         self.mod_revision = mod_revision
 
-    def marshal(self):
+    def _marshal(self):
         obj = Comp.marshal(self)
         obj[u'target'] = u'MOD'  # CompareCompareTarget
         obj[u'mod_revision'] = self.mod_revision
@@ -599,6 +613,39 @@ class Op(object):
 class OpGet(Op):
     """
     Represents a get operation as part of a transaction.
+
+    :ivar key: The key to get.
+    :vartype key: bytes or :class:`txaioetcd.KeySet`
+
+    :ivar count_only:
+    :vartype count_only:
+
+    :ivar keys_only:
+    :vartype keys_only:
+
+    :ivar limit:
+    :vartype limit:
+
+    :ivar max_create_revision:
+    :vartype max_create_revision:
+
+    :ivar min_create_revision:
+    :vartype min_create_revision:
+
+    :ivar min_mod_revision:
+    :vartype min_mod_revision:
+
+    :ivar revision:
+    :vartype revision:
+
+    :ivar serializable:
+    :vartype serializable:
+
+    :ivar sort_order:
+    :vartype sort_order:
+
+    :ivar sort_target:
+    :vartype sort_target:
     """
 
     def __init__(self,
@@ -613,11 +660,6 @@ class OpGet(Op):
                  serializable=None,
                  sort_order=None,
                  sort_target=None):
-        """
-
-        :param key: The key or key set to get.
-        :type key: bytes or KeySet
-        """
         Op.__init__(self)
 
         if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
@@ -671,7 +713,7 @@ class OpGet(Op):
         self.sort_order = sort_order
         self.sort_target = sort_target
 
-    def marshal(self):
+    def _marshal(self):
         obj = {
             u'request_range': self.key.marshal()
         }
@@ -714,17 +756,21 @@ class OpGet(Op):
 class OpSet(Op):
     """
     Represents a set operation as part of a transaction.
+
+    :ivar key: The key to set.
+    :vartype key: bytes
+
+    :ivar value: The value to set.
+    :vartype value: bytes
+
+    :ivar lease:
+    :vartype lease: instance of :class:`txaioetcd.Lease`
+
+    :ivar return_previous:
+    :vartype return_previous: bool or None
     """
 
     def __init__(self, key, value, lease=None, return_previous=None):
-        """
-
-        :param key: The key to set.
-        :type key: bytes
-
-        :param value: The value to set.
-        :type value: bytes
-        """
         Op.__init__(self)
 
         if type(key) != six.binary_type:
@@ -744,7 +790,7 @@ class OpSet(Op):
         self.lease = lease
         self.return_previous = return_previous
 
-    def marshal(self):
+    def _marshal(self):
         obj = {
             u'request_put': {
                 u'key': binascii.b2a_base64(self.key).decode(),
@@ -766,17 +812,15 @@ class OpSet(Op):
 class OpDel(Op):
     """
     Represents a delete operation as part of a transaction.
+
+    :ivar key: The key or key set to delete.
+    :vartype key: bytes or :class:`txaioetcd.KeySet`
+
+    :ivar return_previous: If enabled, return the deleted key-value pairs
+    :vartype return_previous: bool or None
     """
 
     def __init__(self, key, return_previous=None):
-        """
-
-        :param key: The key or key set to delete.
-        :type key: bytes or KeySet
-
-        :param return_previous: If enabled, return the deleted key-value pairs
-        :type return_previous: bool or None
-        """
         Op.__init__(self)
 
         if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
@@ -792,7 +836,7 @@ class OpDel(Op):
 
         self.return_previous = return_previous
 
-    def marshal(self):
+    def _marshal(self):
         obj = {
             u'request_delete_range': self.key.marshal()
         }
@@ -808,20 +852,19 @@ class OpDel(Op):
 
 class Transaction(object):
     """
+    An etcd transaction.
+
+    :ivar compare: The comparisons this transaction should depend on.
+    :vartype compare: list or None
+
+    :ivar success: In case the transaction is successful, list of operations to perform.
+    :vartype success: list of instances of :class:`txaioetcd.Op` or None
+
+    :ivar failure: In case the transaction is unsuccessful, the list of operations to perform.
+    :vartype failure: list of instances of :class:`txaioetcd.Op` or None
     """
 
     def __init__(self, compare=None, success=None, failure=None):
-        """
-
-        :param compare: The comparisons this transaction should depend on.
-        :type compare: list or None
-
-        :param success: In case the transaction is successful, list of operations to perform.
-        :type success: list of Op or None
-
-        :param failure: In case the transaction is unsuccesful, the list of operations to perform.
-        :type failure: list of Op or None
-        """
         if compare is not None:
             if type(compare) != list:
                 raise TypeError('compare must be a list, not {}'.format(type(compare)))
@@ -850,13 +893,7 @@ class Transaction(object):
         self.success = success
         self.failure = failure
 
-    def marshal(self):
-        """
-        Marshal this object into a raw (request or response) message for
-        subsequent serialization to bytes.
-
-        :returns: obj -- The marshalled object.
-        """
+    def _marshal(self):
         obj = {}
         if self.compare:
             obj[u'compare'] = [o.marshal() for o in self.compare]
@@ -874,14 +911,26 @@ class Transaction(object):
 
 
 class Error(RuntimeError):
+    """
+    Error from etcd.
+
+    :ivar code: The etcd error code.
+    :vartype code: int
+
+    :ivar message: The etcd error message.
+    :vartype message: str or None
+    """
 
     def __init__(self, code, message):
         self.code = code
         self.message = message
 
     @staticmethod
-    def parse(obj):
-        # {'code': 3, 'error': 'etcdserver: duplicate key given in txn request'}
+    def _parse(obj):
+        # {
+        #   'code': 3,
+        #   'error': 'etcdserver: duplicate key given in txn request'
+        # }
         code = int(obj[u'code']) if u'code' in obj else None
         message = obj.get(u'error', None)
         return Error(code, message)
@@ -902,6 +951,15 @@ class Failed(RuntimeError):
 
 
 class Success(object):
+    """
+    A transaction succeeded.
+
+    :ivar header: Response header.
+    :vartype header: instance of :class:`txaioetcd.Header`
+
+    :ivar responses: The responses from the success section of the transaction.
+    :vartype responses:
+    """
 
     def __init__(self, header, responses):
         self.header = header
@@ -913,12 +971,27 @@ class Success(object):
 
 
 class Expired(RuntimeError):
+    """
+    A lease has expired.
+    """
 
     def __init__(self):
         RuntimeError.__init__(self, u'lease expired')
 
 
 class Range(object):
+    """
+    A KV range request response.
+
+    :ivar kvs: The key-value pairs.
+    :vartype kvs: list of :class:`txaioetcd.KeyValue`
+
+    :ivar header: Response header.
+    :vartype header: instance of :class:`txaioetcd.Response`
+
+    :ivar count: Number of KVs in result.
+    :vartype count: int
+    """
 
     def __init__(self, kvs, header, count):
         self.kvs = kvs
@@ -926,7 +999,7 @@ class Range(object):
         self.count = count
 
     @staticmethod
-    def parse(obj):
+    def _parse(obj):
         count = obj.get(u'count', None)
         header = Header.parse(obj[u'header']) if u'header' in obj else None
         kvs = []
