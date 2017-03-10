@@ -31,6 +31,8 @@ import base64
 
 import six
 
+from txaioetcd._lease import Lease
+
 
 __all__ = (
     'KeySet',
@@ -80,33 +82,29 @@ class KeySet(object):
     """
     Represents a set of etcd keys. Either a single key, a key range or
     all keys with a given prefix.
-
-    :ivar key: The key range start or the key prefix.
-    :vartype key: bytes
-
-    :ivar range_end: The key range end
-    :vartype range_end: bytes or None
-
-    :ivar prefix: If enabled, the key set is determined by prefix.
-    :vartype prefix: bool or None
     """
 
-    SINGLE = u'single'
-    """
-    Key set is a single key - hence the set is degenarate.
-    """
+    # Key set is a single key - hence the set is degenarate.
+    _SINGLE = u'single'
 
-    RANGE = u'range'
-    """
-    Key set is a range of keys.
-    """
+    # Key set is a range of keys.
+    _RANGE = u'range'
 
-    PREFIX = u'prefix'
-    """
-    Key set is determined by prefix (all keys having the same given prefix).
-    """
+    # Key set is determined by prefix (all keys having the same given prefix).
+    _PREFIX = u'prefix'
 
     def __init__(self, key, range_end=None, prefix=None):
+        """
+
+        :param key: The key range start or the key prefix.
+        :type key: bytes
+
+        :param range_end: The key range end
+        :type range_end: bytes or None
+
+        :param prefix: If enabled, the key set is determined by prefix.
+        :type prefix: bool or None
+        """
         if type(key) != six.binary_type:
             raise TypeError('key must be bytes type, not {}'.format(type(key)))
         if range_end is not None and type(range_end) != six.binary_type:
@@ -121,22 +119,22 @@ class KeySet(object):
         self.prefix = prefix
 
         if prefix:
-            self.type = self.PREFIX
+            self.type = KeySet._PREFIX
         elif range_end:
-            self.type = self.RANGE
+            self.type = KeySet._RANGE
         else:
-            self.type = self.SINGLE
+            self.type = KeySet._SINGLE
 
     def _marshal(self):
         obj = {
             u'key': base64.b64encode(self.key).decode()
         }
 
-        if self.type == KeySet.SINGLE:
+        if self.type == KeySet._SINGLE:
             range_end = None
-        elif self.type == KeySet.PREFIX:
+        elif self.type == KeySet._PREFIX:
             range_end = _increment_last_byte(self.key)
-        elif self.type == KeySet.RANGE:
+        elif self.type == KeySet._RANGE:
             range_end = self.range_end
         else:
             raise Exception('logic error')
@@ -248,8 +246,8 @@ class Status(object):
     :ivar version: Cluster protocol version used by the responding member.
     :vartype version: str
 
-    :ivar dbSize: Size of the backend database, in bytes, of the responding member.
-    :vartype dbSize: int
+    :ivar db_size: Size of the backend database, in bytes, of the responding member.
+    :vartype db_size: int
 
     :ivar leader: Member ID which the responding member believes is the current leader.
     :vartype leader: int
@@ -257,19 +255,19 @@ class Status(object):
     :ivar header: Response header.
     :vartype header: instance of :class:`txaioetcd.Header`
 
-    :ivar raftTerm: Current raft term of the responding member.
-    :vartype raftTerm: int
+    :ivar raft_term: Current raft term of the responding member.
+    :vartype raft_term: int
 
-    :ivar raftIndex: Current raft index of the responding member.
-    :vartype raftIndex: int
+    :ivar raft_index: Current raft index of the responding member.
+    :vartype raft_index: int
     """
-    def __init__(self, version, dbSize, leader, header, raftTerm, raftIndex):
+    def __init__(self, version, db_size, leader, header, raft_term, raft_index):
         self.version = version
-        self.dbSize = dbSize
+        self.db_size = db_size
         self.leader = leader
         self.header = header
-        self.raftTerm = raftTerm
-        self.raftIndex = raftIndex
+        self.raft_term = raft_term
+        self.raft_index = raft_index
 
     @staticmethod
     def _parse(obj):
@@ -288,15 +286,15 @@ class Status(object):
         #     u'leader': u'17323375927490080838'
         # }
         version = obj[u'version'] if u'version' in obj else None
-        dbSize = int(obj[u'dbSize']) if u'dbSize' in obj else None
+        db_size = int(obj[u'dbSize']) if u'dbSize' in obj else None
         leader = int(obj[u'leader']) if u'leader' in obj else None
         header = Header.parse(obj[u'header']) if u'header' in obj else None
-        raftTerm = int(obj[u'raftTerm']) if u'raftTerm' in obj else None
-        raftIndex = int(obj[u'raftIndex']) if u'raftIndex' in obj else None
-        return Status(version, dbSize, leader, header, raftTerm, raftIndex)
+        raft_term = int(obj[u'raftTerm']) if u'raftTerm' in obj else None
+        raft_index = int(obj[u'raftIndex']) if u'raftIndex' in obj else None
+        return Status(version, db_size, leader, header, raft_term, raft_index)
 
     def __str__(self):
-        return u'Status(version={}, dbSize={}, leader={}, header={}, raftTerm={}, raftIndex={})'.format(self.version, self.dbSize, self.leader, self.header, self.raftTerm, self.raftIndex)
+        return u'Status(version={}, db_size={}, leader={}, header={}, raft_term={}, raft_index={})'.format(self.version, self.db_size, self.leader, self.header, self.raft_term, self.raft_index)
 
 
 class Deleted(object):
@@ -614,39 +612,16 @@ class Op(object):
 class OpGet(Op):
     """
     Represents a get operation as part of a transaction.
+    """
 
-    :ivar key: The key to get.
-    :vartype key: bytes or :class:`txaioetcd.KeySet`
+    SORT_TARGETS = (u'KEY', u'VERSION', u'CREATE', u'MOD', u'VALUE')
+    """
+    Permissible sort targets.
+    """
 
-    :ivar count_only:
-    :vartype count_only:
-
-    :ivar keys_only:
-    :vartype keys_only:
-
-    :ivar limit:
-    :vartype limit:
-
-    :ivar max_create_revision:
-    :vartype max_create_revision:
-
-    :ivar min_create_revision:
-    :vartype min_create_revision:
-
-    :ivar min_mod_revision:
-    :vartype min_mod_revision:
-
-    :ivar revision:
-    :vartype revision:
-
-    :ivar serializable:
-    :vartype serializable:
-
-    :ivar sort_order:
-    :vartype sort_order:
-
-    :ivar sort_target:
-    :vartype sort_target:
+    SORT_ORDERS = (u'NONE', u'ASCEND', u'DESCEND')
+    """
+    Permissible sort orders.
     """
 
     def __init__(self,
@@ -661,6 +636,41 @@ class OpGet(Op):
                  serializable=None,
                  sort_order=None,
                  sort_target=None):
+        """
+
+        :param key: The key to get.
+        :type key: bytes or :class:`txaioetcd.KeySet`
+
+        :param count_only:
+        :type count_only:
+
+        :param keys_only:
+        :type keys_only:
+
+        :param limit:
+        :type limit:
+
+        :param max_create_revision:
+        :type max_create_revision:
+
+        :param min_create_revision:
+        :type min_create_revision:
+
+        :param min_mod_revision:
+        :type min_mod_revision:
+
+        :param revision:
+        :type revision:
+
+        :param serializable:
+        :type serializable:
+
+        :param sort_order:
+        :type sort_order:
+
+        :param sort_target:
+        :type sort_target:
+        """
         Op.__init__(self)
 
         if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
@@ -695,13 +705,11 @@ class OpGet(Op):
         if serializable is not None and type(serializable) != bool:
             raise TypeError('serializable must be bool, not {}'.format(type(serializable)))
 
-        SORT_TARGETS = [u'KEY', u'VERSION', u'CREATE', u'MOD', u'VALUE']
-        if sort_target is not None and sort_target not in SORT_TARGETS:
-            raise TypeError('sort_target must be one of {}, not {}'.format(SORT_TARGETS, sort_target))
+        if sort_target is not None and sort_target not in OpGet.SORT_TARGETS:
+            raise TypeError('sort_target must be one of {}, not {}'.format(OpGet.SORT_TARGETS, sort_target))
 
-        SORT_ORDERS = [u'NONE', u'ASCEND', u'DESCEND']
-        if sort_order is not None and sort_order not in SORT_ORDERS:
-            raise TypeError('sort_order must be one of {}, not {}'.format(SORT_ORDERS, sort_order))
+        if sort_order is not None and sort_order not in OpGet.SORT_ORDERS:
+            raise TypeError('sort_order must be one of {}, not {}'.format(OpGet.SORT_ORDERS, sort_order))
 
         self.count_only = count_only
         self.keys_only = keys_only
@@ -757,21 +765,23 @@ class OpGet(Op):
 class OpSet(Op):
     """
     Represents a set operation as part of a transaction.
-
-    :ivar key: The key to set.
-    :vartype key: bytes
-
-    :ivar value: The value to set.
-    :vartype value: bytes
-
-    :ivar lease:
-    :vartype lease: instance of :class:`txaioetcd.Lease`
-
-    :ivar return_previous:
-    :vartype return_previous: bool or None
     """
 
     def __init__(self, key, value, lease=None, return_previous=None):
+        """
+
+        :param key: The key to set.
+        :type key: bytes
+
+        :param value: The value to set.
+        :type value: bytes
+
+        :param lease:
+        :type lease: instance of :class:`txaioetcd.Lease`
+
+        :param return_previous:
+        :type return_previous: bool or None
+        """
         Op.__init__(self)
 
         if type(key) != six.binary_type:
@@ -813,15 +823,17 @@ class OpSet(Op):
 class OpDel(Op):
     """
     Represents a delete operation as part of a transaction.
-
-    :ivar key: The key or key set to delete.
-    :vartype key: bytes or :class:`txaioetcd.KeySet`
-
-    :ivar return_previous: If enabled, return the deleted key-value pairs
-    :vartype return_previous: bool or None
     """
 
     def __init__(self, key, return_previous=None):
+        """
+
+        :param key: The key or key set to delete.
+        :type key: bytes or :class:`txaioetcd.KeySet`
+
+        :param return_previous: If enabled, return the deleted key-value pairs
+        :type return_previous: bool or None
+        """
         Op.__init__(self)
 
         if key is not None and type(key) != six.binary_type and not isinstance(key, KeySet):
@@ -854,18 +866,20 @@ class OpDel(Op):
 class Transaction(object):
     """
     An etcd transaction.
-
-    :ivar compare: The comparisons this transaction should depend on.
-    :vartype compare: list or None
-
-    :ivar success: In case the transaction is successful, list of operations to perform.
-    :vartype success: list of instances of :class:`txaioetcd.Op` or None
-
-    :ivar failure: In case the transaction is unsuccessful, the list of operations to perform.
-    :vartype failure: list of instances of :class:`txaioetcd.Op` or None
     """
 
     def __init__(self, compare=None, success=None, failure=None):
+        """
+
+        :param compare: The comparisons this transaction should depend on.
+        :type compare: list of instances of :class:`txaioetcd.Comp` or None
+
+        :param success: In case the transaction is successful, list of operations to perform.
+        :type success: list of instances of :class:`txaioetcd.Op` or None
+
+        :param failure: In case the transaction is unsuccessful, the list of operations to perform.
+        :type failure: list of instances of :class:`txaioetcd.Op` or None
+        """
         if compare is not None:
             if type(compare) != list:
                 raise TypeError('compare must be a list, not {}'.format(type(compare)))

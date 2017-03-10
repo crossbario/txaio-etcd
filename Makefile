@@ -20,7 +20,8 @@ pep8:
 
 # This will run pep8, pyflakes and can skip lines that end with # noqa
 flake8:
-	flake8 --max-line-length=119 test/*.py txaioetcd/*.py
+	#flake8 --max-line-length=119 test/*.py txaioetcd/*.py
+	flake8 --ignore=E501 test/*.py txaioetcd/*.py
 
 # cleanup everything
 clean:

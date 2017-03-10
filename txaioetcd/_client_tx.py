@@ -32,13 +32,10 @@ import base64
 
 import six
 
-import txaio
-txaio.use_twisted()
-
 from twisted.internet.defer import Deferred, succeed, inlineCallbacks, returnValue, CancelledError
 from twisted.internet import protocol
 from twisted.web.client import Agent, HTTPConnectionPool
-from twisted.web.iweb import IBodyProducer, UNKNOWN_LENGTH
+from twisted.web.iweb import UNKNOWN_LENGTH
 from twisted.web.http_headers import Headers
 
 import treq
@@ -47,6 +44,10 @@ from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
     Revision, Error, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
+
+import txaio
+txaio.use_twisted()
+
 
 __all__ = (
     'Client',
@@ -64,14 +65,14 @@ class _BufferedSender(object):
         self.body = body
         self.length = len(body)
 
-    def startProducing(self, consumer):
+    def startProducing(self, consumer):  # noqa
         consumer.write(self.body)
         return succeed(None)
 
-    def pauseProducing(self):
+    def pauseProducing(self):  # noqa
         pass
 
-    def stopProducing(self):
+    def stopProducing(self):  # noqa
         pass
 
 
@@ -83,10 +84,10 @@ class _BufferedReceiver(protocol.Protocol):
         self._buf = []
         self._done = done
 
-    def dataReceived(self, data):
+    def dataReceived(self, data):  # noqa
         self._buf.append(data)
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason):  # noqa
         # TODO: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         if self._done:
             self._done.callback(b''.join(self._buf))
@@ -121,7 +122,7 @@ class _StreamingReceiver(protocol.Protocol):
         self._cb = cb
         self._done = done
 
-    def dataReceived(self, data):
+    def dataReceived(self, data):  # noqa
         self._buf += data
         while True:
             i = self._buf.find(self.SEP)
@@ -144,7 +145,7 @@ class _StreamingReceiver(protocol.Protocol):
             else:
                 break
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason):  # noqa
         self.log.debug('watch connection lost: {reason}', reason=reason)
         # FIXME: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         # watch connection lost: [Failure instance: Traceback (failure with no frames): <class 'twisted.web._newclient.ResponseFailed'>: [<twisted.python.failure.Failure twisted.internet.error.ConnectionLost: Connection to the other side was lost in a non-clean fashion: Connection lost.>, <twisted.python.failure.Failure twisted.web.http._DataLoss: Chunked decoder in 'CHUNK_LENGTH' state, still expecting more data to get to 'FINISHED' state.>]
@@ -177,7 +178,7 @@ class Client(object):
     gRPC HTTP gateway endpoint of etcd.
     """
 
-    def __init__(self, reactor, url, pool=None):
+    def __init__(self, reactor, url, pool=None, timeout=None, connect_timeout=None):
         """
 
         :param rector: Twisted reactor to use.
@@ -188,16 +189,25 @@ class Client(object):
 
         :param pool: Twisted Web agent connection pool
         :type pool:
+
+        :param timeout: If given, a global request timeout used for all
+            requests to etcd.
+        :type timeout: float or None
+
+        :param connect_timeout: If given, a global connection timeout used when
+            opening a new HTTP connection to etcd.
+        :type connect_timeout: float or None
         """
         if type(url) != six.text_type:
             raise TypeError('url must be of type unicode, was {}'.format(type(url)))
         self._url = url
+        self._timeout = timeout
         self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
         self._pool._factory.noisy = False
-        self._agent = Agent(reactor, connectTimeout=10, pool=self._pool)
+        self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
 
     @inlineCallbacks
-    def status(self):
+    def status(self, timeout=None):
         """
         Get etcd status.
 
@@ -210,7 +220,7 @@ class Client(object):
         }
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         status = Status._parse(obj)
@@ -218,7 +228,7 @@ class Client(object):
         returnValue(status)
 
     @inlineCallbacks
-    def set(self, key, value, lease=None, return_previous=None):
+    def set(self, key, value, lease=None, return_previous=None, timeout=None):
         """
         Set the value for the key in the key-value store.
 
@@ -268,7 +278,7 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         revision = Revision._parse(obj)
@@ -287,7 +297,8 @@ class Client(object):
             revision=None,
             serializable=None,
             sort_order=None,
-            sort_target=None):
+            sort_target=None,
+            timeout=None):
         """
         Range gets the keys in the range from the key-value store.
 
@@ -357,11 +368,11 @@ class Client(object):
         else:
             raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
 
-        if key.type == KeySet.SINGLE:
+        if key.type == KeySet._SINGLE:
             range_end = None
-        elif key.type == KeySet.PREFIX:
+        elif key.type == KeySet._PREFIX:
             range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet.RANGE:
+        elif key.type == KeySet._RANGE:
             range_end = key.range_end
         else:
             raise Exception('logic error')
@@ -375,16 +386,16 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         result = Range._parse(obj)
-        count = int(obj.get(u'count', 0))
+        # count = int(obj.get(u'count', 0))
 
         returnValue(result)
 
     @inlineCallbacks
-    def delete(self, key, return_previous=None):
+    def delete(self, key, return_previous=None, timeout=None):
         """
         Delete value(s) from etcd.
 
@@ -407,11 +418,11 @@ class Client(object):
         if return_previous is not None and type(return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
 
-        if key.type == KeySet.SINGLE:
+        if key.type == KeySet._SINGLE:
             range_end = None
-        elif key.type == KeySet.PREFIX:
+        elif key.type == KeySet._PREFIX:
             range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet.RANGE:
+        elif key.type == KeySet._RANGE:
             range_end = key.range_end
         else:
             raise Exception('logic error')
@@ -442,7 +453,7 @@ class Client(object):
 
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         deleted = Deleted._parse(obj)
@@ -494,11 +505,11 @@ class Client(object):
             else:
                 raise TypeError('key must be binary string or KeySet, not {}'.format(type(key)))
 
-            if key.type == KeySet.SINGLE:
+            if key.type == KeySet._SINGLE:
                 range_end = None
-            elif key.type == KeySet.PREFIX:
+            elif key.type == KeySet._PREFIX:
                 range_end = _increment_last_byte(key.key)
-            elif key.type == KeySet.RANGE:
+            elif key.type == KeySet._RANGE:
                 range_end = key.range_end
             else:
                 raise Exception('logic error')
@@ -563,7 +574,7 @@ class Client(object):
         return d
 
     @inlineCallbacks
-    def submit(self, txn):
+    def submit(self, txn, timeout=None):
         """
         Submit a transaction.
 
@@ -613,7 +624,7 @@ class Client(object):
         obj = txn._marshal()
         data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         if u'error' in obj:
@@ -649,7 +660,7 @@ class Client(object):
             raise Failed(header, responses)
 
     @inlineCallbacks
-    def lease(self, time_to_live, lease_id=None):
+    def lease(self, time_to_live, lease_id=None, timeout=None):
         """
         Creates a lease which expires if the server does not
         receive a keep alive within a given time to live period.
@@ -687,7 +698,7 @@ class Client(object):
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
         lease = Lease._parse(self, obj)
