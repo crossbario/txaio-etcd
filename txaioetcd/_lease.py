@@ -78,7 +78,7 @@ class Lease(object):
         #     }
         # }
 
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
         time_to_live = int(obj[u'TTL'])
         lease_id = int(obj[u'ID'])
         return Lease(client, header, time_to_live, lease_id)
@@ -110,7 +110,7 @@ class Lease(object):
             raise Expired()
 
         # grantedTTL = int(obj[u'grantedTTL'])
-        # header = Header.parse(obj[u'header']) if u'header' in obj else None
+        # header = Header._parse(obj[u'header']) if u'header' in obj else None
 
         returnValue(ttl)
 
@@ -142,7 +142,7 @@ class Lease(object):
             raise Expired()
 
         # grantedTTL = int(obj[u'grantedTTL'])
-        # header = Header.parse(obj[u'header']) if u'header' in obj else None
+        # header = Header._parse(obj[u'header']) if u'header' in obj else None
         keys = [binascii.a2b_base64(key) for key in obj.get(u'keys', [])]
 
         returnValue(keys)
@@ -171,7 +171,7 @@ class Lease(object):
 
         obj = yield treq.json_content(response)
 
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
 
         self._expired = True
 
@@ -209,7 +209,7 @@ class Lease(object):
             self._expired = True
             raise Expired()
 
-        header = Header.parse(obj[u'result'][u'header']) if u'header' in obj[u'result'] else None
+        header = Header._parse(obj[u'result'][u'header']) if u'header' in obj[u'result'] else None
 
         self._expired = False
 

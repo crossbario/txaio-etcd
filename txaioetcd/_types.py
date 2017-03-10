@@ -286,7 +286,7 @@ class Status(object):
         version = obj[u'version'] if u'version' in obj else None
         db_size = int(obj[u'dbSize']) if u'dbSize' in obj else None
         leader = int(obj[u'leader']) if u'leader' in obj else None
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
         raft_term = int(obj[u'raftTerm']) if u'raftTerm' in obj else None
         raft_index = int(obj[u'raftIndex']) if u'raftIndex' in obj else None
         return Status(version, db_size, leader, header, raft_term, raft_index)
@@ -351,11 +351,11 @@ class Deleted(object):
         # }
 
         deleted = int(obj[u'deleted']) if u'deleted' in obj else None
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
         if u'prev_kvs' in obj:
             previous = []
             for kv in obj[u'prev_kvs']:
-                previous.append(KeyValue.parse(kv))
+                previous.append(KeyValue._parse(kv))
         else:
             previous = None
         return Deleted(deleted, header, previous)
@@ -420,9 +420,9 @@ class Revision(object):
         #     }
         # }
 
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
         if u'prev_kv' in obj:
-            previous = KeyValue.parse(obj[u'prev_kv'])
+            previous = KeyValue._parse(obj[u'prev_kv'])
         else:
             previous = None
         return Revision(header, previous)
@@ -1016,10 +1016,10 @@ class Range(object):
     @staticmethod
     def _parse(obj):
         count = obj.get(u'count', None)
-        header = Header.parse(obj[u'header']) if u'header' in obj else None
+        header = Header._parse(obj[u'header']) if u'header' in obj else None
         kvs = []
         for kv in obj.get(u'kvs', []):
-            kvs.append(KeyValue.parse(kv))
+            kvs.append(KeyValue._parse(kv))
         return Range(kvs, header, count)
 
     def __str__(self):
