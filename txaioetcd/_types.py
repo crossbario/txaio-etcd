@@ -496,7 +496,7 @@ class CompValue(Comp):
         self.value = value
 
     def _marshal(self):
-        obj = Comp.marshal(self)
+        obj = Comp._marshal(self)
         obj[u'target'] = u'VALUE'  # CompareCompareTarget
         obj[u'value'] = base64.b64encode(self.value).decode()
         return obj
@@ -528,7 +528,7 @@ class CompVersion(Comp):
         self.version = version
 
     def _marshal(self):
-        obj = Comp.marshal(self)
+        obj = Comp._marshal(self)
         obj[u'target'] = u'VERSION'  # CompareCompareTarget
         obj[u'version'] = self.version
         return obj
@@ -560,7 +560,7 @@ class CompCreated(Comp):
         self.create_revision = create_revision
 
     def _marshal(self):
-        obj = Comp.marshal(self)
+        obj = Comp._marshal(self)
         obj[u'target'] = u'CREATE'  # CompareCompareTarget
         obj[u'create_revision'] = self.create_revision
         return obj
@@ -592,7 +592,7 @@ class CompModified(Comp):
         self.mod_revision = mod_revision
 
     def _marshal(self):
-        obj = Comp.marshal(self)
+        obj = Comp._marshal(self)
         obj[u'target'] = u'MOD'  # CompareCompareTarget
         obj[u'mod_revision'] = self.mod_revision
         return obj
@@ -722,7 +722,7 @@ class OpGet(Op):
 
     def _marshal(self):
         obj = {
-            u'request_range': self.key.marshal()
+            u'request_range': self.key._marshal()
         }
         if self.count_only:
             obj[u'count_only'] = True
@@ -851,7 +851,7 @@ class OpDel(Op):
 
     def _marshal(self):
         obj = {
-            u'request_delete_range': self.key.marshal()
+            u'request_delete_range': self.key._marshal()
         }
 
         if self.return_previous:
@@ -911,11 +911,11 @@ class Transaction(object):
     def _marshal(self):
         obj = {}
         if self.compare:
-            obj[u'compare'] = [o.marshal() for o in self.compare]
+            obj[u'compare'] = [o._marshal() for o in self.compare]
         if self.success:
-            obj[u'success'] = [o.marshal() for o in self.success]
+            obj[u'success'] = [o._marshal() for o in self.success]
         if self.failure:
-            obj[u'failure'] = [o.marshal() for o in self.failure]
+            obj[u'failure'] = [o._marshal() for o in self.failure]
         return obj
 
     def __str__(self):
