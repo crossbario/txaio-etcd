@@ -793,7 +793,7 @@ class OpSet(Op):
         from txaioetcd._lease import Lease
         if lease is not None and not isinstance(lease, Lease):
             raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
-        
+
         if return_previous is not None and type(return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
 
