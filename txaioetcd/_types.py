@@ -725,34 +725,34 @@ class OpGet(Op):
             u'request_range': self.key._marshal()
         }
         if self.count_only:
-            obj[u'count_only'] = True
+            obj[u'request_range'][u'count_only'] = True
 
         if self.keys_only:
-            obj[u'keys_only'] = True
+            obj[u'request_range'][u'keys_only'] = True
 
         if self.limit:
-            obj[u'limit'] = self.limit
+            obj[u'request_range'][u'limit'] = self.limit
 
         if self.max_create_revision:
-            obj[u'max_create_revision'] = self.max_create_revision
+            obj[u'request_range'][u'max_create_revision'] = self.max_create_revision
 
         if self.min_create_revision:
-            obj[u'min_create_revision'] = self.min_create_revision
+            obj[u'request_range'][u'min_create_revision'] = self.min_create_revision
 
         if self.min_mod_revision:
-            obj[u'min_mod_revision'] = self.min_mod_revision
+            obj[u'request_range'][u'min_mod_revision'] = self.min_mod_revision
 
         if self.revision:
-            obj[u'revision'] = self.revision
+            obj[u'request_range'][u'revision'] = self.revision
 
         if self.serializable:
-            obj[u'serializable'] = True
+            obj[u'request_range'][u'serializable'] = True
 
         if self.sort_order:
-            obj[u'sort_order'] = self.sort_order
+            obj[u'request_range'][u'sort_order'] = self.sort_order
 
         if self.sort_target:
-            obj[u'sort_target'] = self.sort_target
+            obj[u'request_range'][u'sort_target'] = self.sort_target
 
         return obj
 
@@ -779,6 +779,7 @@ class OpSet(Op):
 
         :param return_previous:
         :type return_previous: bool or None
+        
         """
         Op.__init__(self)
 
@@ -810,9 +811,9 @@ class OpSet(Op):
         }
 
         if self.lease:
-            obj[u'lease'] = self.lease.lease_id
+            obj[u'request_put'][u'lease'] = self.lease.lease_id
         if self.return_previous:
-            obj[u'return_previous'] = True
+            obj[u'request_put'][u'prev_kv'] = True
 
         return obj
 
