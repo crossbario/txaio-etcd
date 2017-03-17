@@ -725,34 +725,34 @@ class OpGet(Op):
             u'request_range': self.key._marshal()
         }
         if self.count_only:
-            obj[u'count_only'] = True
+            obj[u'request_range'][u'count_only'] = True
 
         if self.keys_only:
-            obj[u'keys_only'] = True
+            obj[u'request_range'][u'keys_only'] = True
 
         if self.limit:
-            obj[u'limit'] = self.limit
+            obj[u'request_range'][u'limit'] = self.limit
 
         if self.max_create_revision:
-            obj[u'max_create_revision'] = self.max_create_revision
+            obj[u'request_range'][u'max_create_revision'] = self.max_create_revision
 
         if self.min_create_revision:
-            obj[u'min_create_revision'] = self.min_create_revision
+            obj[u'request_range'][u'min_create_revision'] = self.min_create_revision
 
         if self.min_mod_revision:
-            obj[u'min_mod_revision'] = self.min_mod_revision
+            obj[u'request_range'][u'min_mod_revision'] = self.min_mod_revision
 
         if self.revision:
-            obj[u'revision'] = self.revision
+            obj[u'request_range'][u'revision'] = self.revision
 
         if self.serializable:
-            obj[u'serializable'] = True
+            obj[u'request_range'][u'serializable'] = True
 
         if self.sort_order:
-            obj[u'sort_order'] = self.sort_order
+            obj[u'request_range'][u'sort_order'] = self.sort_order
 
         if self.sort_target:
-            obj[u'sort_target'] = self.sort_target
+            obj[u'request_range'][u'sort_target'] = self.sort_target
 
         return obj
 
@@ -765,7 +765,8 @@ class OpSet(Op):
     Represents a set operation as part of a transaction.
     """
 
-    def __init__(self, key, value, lease=None, return_previous=None):
+    def __init__(self, key, value, lease=None, return_previous=None, 
+                 ignore_value=None, ignore_lease=None):
         """
 
         :param key: The key to set.
@@ -779,6 +780,12 @@ class OpSet(Op):
 
         :param return_previous:
         :type return_previous: bool or None
+        
+        :param ignore_value: updates the key using its current value
+        :type ignore_value: bool or None
+        
+        :param ignore_lease: updates the key using its current lease
+        :type ignore_lease: bool or None
         """
         Op.__init__(self)
 
@@ -792,14 +799,19 @@ class OpSet(Op):
         from txaioetcd._lease import Lease
         if lease is not None and not isinstance(lease, Lease):
             raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
-
         if return_previous is not None and type(return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+        if ignore_value is not None and type(ignore_value) != bool:
+            raise TypeError('ignore_value must be bool, not {}'.format(type(ignore_value)))
+        if ignore_lease is not None and type(ignore_lease) != bool:
+            raise TypeError('ignore_lease must be bool, not {}'.format(type(ignore_lease)))
 
         self.key = key
         self.value = value
         self.lease = lease
         self.return_previous = return_previous
+        self.ignore_value = ignore_value
+        self.ignore_lease = ignore_lease
 
     def _marshal(self):
         obj = {
@@ -810,14 +822,18 @@ class OpSet(Op):
         }
 
         if self.lease:
-            obj[u'lease'] = self.lease.lease_id
+            obj[u'request_put'][u'lease'] = self.lease.lease_id
         if self.return_previous:
-            obj[u'return_previous'] = True
+            obj[u'request_put'][u'prev_kv'] = True
+        if self.ignore_value:
+            obj[u'request_put'][u'ignore_value'] = True
+        if self.ignore_lease:
+            obj[u'request_put'][u'ignore_lease'] = True
 
         return obj
 
     def __str__(self):
-        return u'OpSet(key={}, value={}, lease={}, return_previous={})'.format(_maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous))
+        return u'OpSet(key={}, value={}, lease={}, return_previous={}, ignore_value={}, ignore_lease={})'.format(_maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous, self.ignore_value, self.ignore_lease))
 
 
 class OpDel(Op):
