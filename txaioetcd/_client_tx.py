@@ -146,7 +146,7 @@ class _StreamingReceiver(protocol.Protocol):
                 break
 
     def connectionLost(self, reason):  # noqa
-        self.log.debug('watch connection lost: {reason}', reason=reason)
+        self.log.debug('etcd watch connection lost: {reason}', reason=reason)
         # FIXME: test if reason is twisted.web.client.ResponseDone, if not, do an errback
         # watch connection lost: [Failure instance: Traceback (failure with no frames): <class 'twisted.web._newclient.ResponseFailed'>: [<twisted.python.failure.Failure twisted.internet.error.ConnectionLost: Connection to the other side was lost in a non-clean fashion: Connection lost.>, <twisted.python.failure.Failure twisted.web.http._DataLoss: Chunked decoder in 'CHUNK_LENGTH' state, still expecting more data to get to 'FINISHED' state.>]
         if self._done:
