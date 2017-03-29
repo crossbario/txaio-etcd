@@ -42,9 +42,11 @@ extras_require_dev = [
 setup(
     name='txaioetcd',
     version=__version__,
-    description='A Twisted client for etcd3',
+    description='Asynchronous client library for etcd3',
     long_description=docstr,
+    license='MIT License',
     author='Crossbar.io Technologies GmbH',
+    author_email='autobahnws@googlegroups.com',
     url='https://github.com/crossbario/txaio-etcd',
     platforms=('Any'),
     install_requires=[
@@ -57,11 +59,22 @@ setup(
         'dev': extras_require_dev,
     },
     packages=['txaioetcd'],
+
+    # this flag will make files from MANIFEST.in go into _source_ distributions only
+    include_package_data=True,
+
+    # in addition, the following will make the specified files go
+    # into source _and_ bdist distributions!
+    data_files=[('.', ['LICENSE'])],
+
+    # this package does not access its own source code or data files
+    # as normal operating system files
     zip_safe=True,
+
     # http://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "License :: OSI Approved :: MIT License",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Framework :: Twisted",
         "Intended Audience :: Developers",
@@ -73,6 +86,7 @@ setup(
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries",
