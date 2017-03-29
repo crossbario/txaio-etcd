@@ -29,8 +29,6 @@ and the following advanced features
 - global locks and sequences
 - transactional, multi-consumer-producer queues
 
-WARNING: This is totally alpha. The API is not frozen yet. Stuff is most definitely not issue free or anywhere complete. PRs welcome though;)
-
 
 Examples
 --------
