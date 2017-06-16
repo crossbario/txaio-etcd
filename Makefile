@@ -25,23 +25,24 @@ flake8:
 
 # cleanup everything
 clean:
-	rm -rf ./txaioetcd.egg-info
-	rm -rf ./build
-	rm -rf ./dist
-	rm -rf ./temp
-	rm -rf ./_trial_temp
-	rm -rf ./.tox
-	rm -rf ./.eggs
-	rm -rf ./.cache
-	rm -rf ./test/.coverage.*.*
-	rm -rf ./docs/_build
-	rm -rf ./docs/_spelling
-	rm -f ./basic.spec
+	-sudo rm -rf ./.etcd
+	-docker rmi crossbario/txaioetcd
+	-rm -rf ./txaioetcd.egg-info
+	-rm -rf ./build
+	-rm -rf ./dist
+	-rm -rf ./temp
+	-rm -rf ./_trial_temp
+	-rm -rf ./.tox
+	-rm -rf ./.eggs
+	-rm -rf ./.cache
+	-rm -rf ./test/.coverage.*.*
+	-rm -rf ./docs/_build
+	-rm -rf ./docs/_spelling
+	-rm -f ./basic.spec
 	-find . -name "*.tar.gz" -type f -exec rm -f {} \;
 	-find . -name "*.egg" -type f -exec rm -f {} \;
 	-find . -name "*.pyc" -type f -exec rm -f {} \;
 	-find . -name "*__pycache__" -type d -exec rm -rf {} \;
-	docker rmi crossbario/txaioetcd
 
 # publish to PyPI
 publish: clean
