@@ -41,6 +41,7 @@ clean:
 	-find . -name "*.egg" -type f -exec rm -f {} \;
 	-find . -name "*.pyc" -type f -exec rm -f {} \;
 	-find . -name "*__pycache__" -type d -exec rm -rf {} \;
+	docker rmi crossbario/txaioetcd
 
 # publish to PyPI
 publish: clean
@@ -66,7 +67,7 @@ docker_etcd:
 
 # build an example image
 docker_build:
-	docker build -f Dockerfile -t crossbario/txaioetcd .
+	docker build -f docker/Dockerfile -t crossbario/txaioetcd docker/
 
 # test the example image
 docker_test:

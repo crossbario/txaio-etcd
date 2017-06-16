@@ -62,6 +62,25 @@ To install txaioetcd
     pip install txaioetcd
 
 
+Quick test
+----------
+
+If you have Docker on your system, you can do a quick test. First, start a Docker container with etcd:
+
+.. code-block:: sh
+
+    make docker_etcd
+
+Then, in a second terminal:
+
+.. code-block:: sh
+
+    make docker_build
+    make docker_test
+
+You should see all the example programs run against the etcd daemon in the first container.
+
+
 etcd
 ----
 

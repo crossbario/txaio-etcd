@@ -1,6 +1,6 @@
 FROM python:3
 
-RUN pip install twisted txaioetcd
+RUN pip install --no-cache-dir --upgrade twisted txaioetcd
 
 VOLUME /examples
 
