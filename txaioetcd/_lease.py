@@ -100,7 +100,7 @@ class Lease(object):
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()
-        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._client._REQ_HEADERS)
 
         obj = yield treq.json_content(response)
 
@@ -132,7 +132,7 @@ class Lease(object):
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()
-        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._client._REQ_HEADERS)
 
         obj = yield treq.json_content(response)
 
@@ -167,7 +167,7 @@ class Lease(object):
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/kv/lease/revoke'.format(self._client._url).encode()
-        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._client._REQ_HEADERS)
 
         obj = yield treq.json_content(response)
 
@@ -197,7 +197,7 @@ class Lease(object):
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/lease/keepalive'.format(self._client._url).encode()
-        response = yield treq.post(url, data, headers=self._client.REQ_HEADERS)
+        response = yield treq.post(url, data, headers=self._client._REQ_HEADERS)
 
         obj = yield treq.json_content(response)
 

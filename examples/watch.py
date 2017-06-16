@@ -50,9 +50,9 @@ def main(reactor):
     keys = [KeySet(b'mykey2', b'mykey5'), KeySet(b'mykey', prefix=True)]
     d = etcd.watch(keys, on_change)
 
-    # stop after 60 seconds
-    print('watching for 60s ..')
-    yield txaio.sleep(60)
+    # stop after 10 seconds
+    print('watching for 10s ..')
+    yield txaio.sleep(10)
     d.cancel()
 
 

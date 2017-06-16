@@ -46,3 +46,28 @@ clean:
 publish: clean
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
+
+# start a single-node etcd cluster in a Docker container
+docker_etcd:
+	docker run \
+		--rm \
+		--net=host \
+		-p 2379:2379 \
+		-p 2380:2380 \
+		-v /usr/share/ca-certificates/:/etc/ssl/certs \
+		-v ${PWD}/.etcd:/etcd-data \
+		--name cf-etcd \
+		quay.io/coreos/etcd:latest \
+			/usr/local/bin/etcd \
+			--data-dir=/etcd-data \
+			--name cf-etcd \
+			--advertise-client-urls http://0.0.0.0:2379 \
+			--listen-client-urls http://0.0.0.0:2379
+
+# build an example image
+docker_build:
+	docker build -f Dockerfile -t crossbario/txaioetcd .
+
+# test the example image
+docker_test:
+	docker run -it --rm --net=host -v ${PWD}/examples:/examples crossbario/txaioetcd
