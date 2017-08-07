@@ -69,7 +69,6 @@ def export_as_csv(reactor, output_path, etcd_address):
 
 
 def main():
-    txaio.start_logging(level='info')
     # TODO: handle commandline arguments here.
     react(export_as_json, ('output.json', ADDRESS_ETCD))
     # react(export_as_csv, ('output.csv', ADDRESS_ETCD))

@@ -58,7 +58,7 @@ setup(
     extras_require={
         'dev': extras_require_dev,
     },
-    packages=['txaioetcd'],
+    packages=['txaioetcd', 'txaioetcd.cli'],
 
     # this flag will make files from MANIFEST.in go into _source_ distributions only
     include_package_data=True,
@@ -94,6 +94,6 @@ setup(
     keywords='twisted etcd etcd3',
 
     entry_points={
-        'console_scripts': ['etcd-export = cmd.exporter:main']
+        'console_scripts': ['etcd-export = txaioetcd.cli.exporter:main']
     },
 )
