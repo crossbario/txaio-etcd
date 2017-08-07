@@ -24,12 +24,13 @@
 #
 ###############################################################################
 
+import argparse
 import csv
 import json
+import os
 
 from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks
-import txaio
 
 from txaioetcd import Client
 
@@ -69,9 +70,24 @@ def export_as_csv(reactor, output_path, etcd_address):
 
 
 def main():
-    # TODO: handle commandline arguments here.
-    react(export_as_json, ('output.json', ADDRESS_ETCD))
-    # react(export_as_csv, ('output.csv', ADDRESS_ETCD))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--address', help='Address(with port number) of the etcd daemon.',
+                        default=ADDRESS_ETCD)
+    parser.add_argument('-f', '--output-format', help='The output format for the database dump.',
+                        default='json')
+    parser.add_argument('-o', '--output-file', help='Path for the output file.')
+    args = parser.parse_args()
+
+    output_format = args.output_format.lower()
+    if output_format not in ['json', 'csv']:
+        print("Error: output format must either be json or csv.")
+        exit(1)
+
+    output_file = args.output_file if args.output_file else 'etc-dump.{}'.format(output_format)
+    if output_file.startswith('~'):
+        output_file = os.path.expanduser(output_file)
+
+    react(export_as_csv if output_format == 'csv' else export_as_json, (output_file, args.address))
 
 
 if __name__ == '__main__':
