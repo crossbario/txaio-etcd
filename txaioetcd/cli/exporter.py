@@ -64,7 +64,6 @@ def export_as_csv(reactor, output_path, etcd_address):
     res = {item.key.decode(): item.value.decode() for item in result.kvs}
     with open(output_path, 'w') as file:
         writer = csv.writer(file)
-        writer.writerow(['keys', 'values'])
         for k, v in res.items():
             writer.writerow([k, v])
 
