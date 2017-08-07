@@ -70,7 +70,7 @@ def export_as_csv(reactor, output_path, etcd_address):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Utility to dump etcd database to a file.')
     parser.add_argument('-a', '--address', help='Address(with port number) of the etcd daemon.',
                         default=ADDRESS_ETCD)
     parser.add_argument('-f', '--output-format', help='The output format for the database dump.',
