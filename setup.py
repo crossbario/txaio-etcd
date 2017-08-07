@@ -92,4 +92,8 @@ setup(
         "Topic :: Software Development :: Libraries",
     ],
     keywords='twisted etcd etcd3',
+
+    entry_points={
+        'console_scripts': ['etcd-export = cmd.exporter:main']
+    },
 )
