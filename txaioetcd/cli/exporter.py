@@ -29,6 +29,7 @@ import csv
 import json
 import os
 import sys
+import binascii
 
 from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -56,14 +57,14 @@ def _get_all_keys(reactor, key_type, value_type, etcd_address):
         if key_type == u'utf8':
             key = item.key.decode('utf8')
         elif key_type == u'binary':
-            raise Exception('not implemented')
+            key = binascii.b2a_base64(item.key).decode().strip()
         else:
             raise Exception('logic error')
 
         if value_type == u'json':
             value = json.loads(item.value.decode('utf8'))
         elif value_type == u'binary':
-            raise Exception('not implemented')
+            value = binascii.b2a_base64(item.value).decode().strip()
         else:
             raise Exception('logic error')
 
