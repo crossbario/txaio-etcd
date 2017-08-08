@@ -294,6 +294,7 @@ class Client(object):
     @inlineCallbacks
     def get(self,
             key,
+            range_end=None,
             count_only=None,
             keys_only=None,
             limit=None,
@@ -373,7 +374,10 @@ class Client(object):
         :type timeout: int or None
         """
         if type(key) == six.binary_type:
-            key = KeySet(key)
+            if range_end:
+                key = KeySet(key, range_end=range_end)
+            else:
+                key = KeySet(key)
         elif isinstance(key, KeySet):
             pass
         else:
