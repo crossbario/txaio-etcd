@@ -28,16 +28,18 @@ import argparse
 import csv
 import json
 import os
+import sys
 
 from twisted.internet.task import react
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txaioetcd import Client
 
 ADDRESS_ETCD = u'http://localhost:2379'
 
 
-def _get_all_keys(reactor, etcd_address):
+@inlineCallbacks
+def _get_all_keys(reactor, key_type, value_type, etcd_address):
     """Returns all keys from etcd.
 
     :param reactor: reference to Twisted' reactor.
@@ -47,46 +49,83 @@ def _get_all_keys(reactor, etcd_address):
         their values.
     """
     etcd = Client(reactor, etcd_address)
-    return etcd.get(b'\x00', range_end=b'\x00')
+    result = yield etcd.get(b'\x00', range_end=b'\x00')
+
+    res = {}
+    for item in result.kvs:
+        if key_type == u'utf8':
+            key = item.key.decode('utf8')
+        elif key_type == u'binary':
+            raise Exception('not implemented')
+        else:
+            raise Exception('logic error')
+
+        if value_type == u'json':
+            value = json.loads(item.value.decode('utf8'))
+        elif value_type == u'binary':
+            raise Exception('not implemented')
+        else:
+            raise Exception('logic error')
+
+        res[key] = value
+
+    returnValue(res)
 
 
 @inlineCallbacks
-def export_as_json(reactor, output_path, etcd_address):
-    result = yield _get_all_keys(reactor, etcd_address)
-    res = {item.key.decode(): item.value.decode() for item in result.kvs}
-    with open(output_path, 'w') as file:
-        json.dump(res, file, sort_keys=True, indent=4)
+def export_as_json(reactor, key_type, value_type, output_path, etcd_address):
+    res = yield _get_all_keys(reactor, key_type, value_type, etcd_address)
+    if output_path:
+        with open(output_path, 'w') as file:
+            json.dump(res, file, sort_keys=True, indent=4, ensure_ascii=False)
+    else:
+        json.dump(res, sys.stdout, sort_keys=True, indent=4, ensure_ascii=False)
+        print('\n')
 
 
 @inlineCallbacks
-def export_as_csv(reactor, output_path, etcd_address):
-    result = yield _get_all_keys(reactor, etcd_address)
-    res = {item.key.decode(): item.value.decode() for item in result.kvs}
+def export_as_csv(reactor, key_type, value_type, output_path, etcd_address):
+    res = yield _get_all_keys(reactor, key_type, value_type, etcd_address)
     with open(output_path, 'w') as file:
         writer = csv.writer(file)
         for k, v in res.items():
-            writer.writerow([k, v])
+            writer.writerow([k, json.dumps(v, separators=(',', ':'), ensure_ascii=False)])
 
 
 def main():
     parser = argparse.ArgumentParser(description='Utility to dump etcd database to a file.')
-    parser.add_argument('-a', '--address', help='Address(with port number) of the etcd daemon.',
+
+    parser.add_argument('-a', '--address',
+                        help='Address(with port number) of the etcd daemon (default: {})'.format(ADDRESS_ETCD),
                         default=ADDRESS_ETCD)
-    parser.add_argument('-f', '--output-format', help='The output format for the database dump.',
+
+    parser.add_argument('-k', '--key-type',
+                        help='The key type in the etcd database (default: utf8).',
+                        choices=['utf8', 'binary'],
+                        default='utf8')
+
+    parser.add_argument('-v', '--value-type',
+                        help='The value type in the etcd database (default: json).',
+                        choices=['json', 'binary'],
                         default='json')
-    parser.add_argument('-o', '--output-file', help='Path for the output file.')
+
+    parser.add_argument('-f', '--output-format',
+                        help='The output format for the database dump (default: json).',
+                        choices=['json', 'csv'],
+                        default='json')
+
+    parser.add_argument('-o',
+                        '--output-file',
+                        default=None,
+                        help='Path for the output file. When unset, output goes to stdout.')
+
     args = parser.parse_args()
 
-    output_format = args.output_format.lower()
-    if output_format not in ['json', 'csv']:
-        print("Error: output format must either be json or csv.")
-        exit(1)
-
-    output_file = args.output_file if args.output_file else 'etc-dump.{}'.format(output_format)
-    if output_file.startswith('~'):
+    output_file = args.output_file
+    if output_file and output_file.startswith('~'):
         output_file = os.path.expanduser(output_file)
 
-    react(export_as_csv if output_format == 'csv' else export_as_json, (output_file, args.address))
+    react(export_as_csv if args.output_format == 'csv' else export_as_json, (args.key_type, args.value_type, output_file, args.address))
 
 
 if __name__ == '__main__':
