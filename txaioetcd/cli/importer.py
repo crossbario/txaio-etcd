@@ -58,7 +58,7 @@ def json_to_dict(json_file):
 
 
 @inlineCallbacks
-def export(reactor, key_type, value_type, input_format, input_file, etcd_address):
+def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_address):
     result = yield get_all_keys(reactor, key_type, value_type, etcd_address)
     if input_format == TYPE_CSV:
         input_content = yield csv_to_dict(input_file, value_type)
@@ -114,7 +114,7 @@ def main():
 
     input_format = TYPE_CSV if input_file.endswith(TYPE_CSV) else TYPE_JSON
 
-    react(export, (args.key_type, args.value_type, input_format, input_file, args.address))
+    react(import_to_db, (args.key_type, args.value_type, input_format, input_file, args.address))
 
 
 if __name__ == '__main__':
