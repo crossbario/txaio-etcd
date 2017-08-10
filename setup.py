@@ -94,6 +94,9 @@ setup(
     keywords='twisted etcd etcd3',
 
     entry_points={
-        'console_scripts': ['etcd-export = txaioetcd.cli.exporter:main']
+        'console_scripts': [
+            'etcd-export = txaioetcd.cli.exporter:main',
+            'etcd-import = txaioetcd.cli.importer:main'
+        ]
     },
 )

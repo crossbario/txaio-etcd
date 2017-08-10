@@ -40,7 +40,7 @@ ADDRESS_ETCD = u'http://localhost:2379'
 
 
 @inlineCallbacks
-def _get_all_keys(reactor, key_type, value_type, etcd_address):
+def get_all_keys(reactor, key_type, value_type, etcd_address):
     """Returns all keys from etcd.
 
     :param reactor: reference to Twisted' reactor.
@@ -65,6 +65,8 @@ def _get_all_keys(reactor, key_type, value_type, etcd_address):
             value = json.loads(item.value.decode('utf8'))
         elif value_type == u'binary':
             value = binascii.b2a_base64(item.value).decode().strip()
+        elif value_type == u'utf8':
+            value = item.value.decode('utf8')
         else:
             raise Exception('logic error')
 
@@ -75,7 +77,7 @@ def _get_all_keys(reactor, key_type, value_type, etcd_address):
 
 @inlineCallbacks
 def export_as_json(reactor, key_type, value_type, output_path, etcd_address):
-    res = yield _get_all_keys(reactor, key_type, value_type, etcd_address)
+    res = yield get_all_keys(reactor, key_type, value_type, etcd_address)
     if output_path:
         with open(output_path, 'w') as file:
             json.dump(res, file, sort_keys=True, indent=4, ensure_ascii=False)
@@ -86,18 +88,22 @@ def export_as_json(reactor, key_type, value_type, output_path, etcd_address):
 
 @inlineCallbacks
 def export_as_csv(reactor, key_type, value_type, output_path, etcd_address):
-    res = yield _get_all_keys(reactor, key_type, value_type, etcd_address)
+    res = yield get_all_keys(reactor, key_type, value_type, etcd_address)
     with open(output_path, 'w') as file:
         writer = csv.writer(file)
         for k, v in res.items():
-            writer.writerow([k, json.dumps(v, separators=(',', ':'), ensure_ascii=False)])
+            if value_type == u'utf8':
+                writer.writerow([k, v])
+            else:
+                writer.writerow([k, json.dumps(v, separators=(',', ':'), ensure_ascii=False)])
 
 
 def main():
     parser = argparse.ArgumentParser(description='Utility to dump etcd database to a file.')
 
     parser.add_argument('-a', '--address',
-                        help='Address(with port number) of the etcd daemon (default: {})'.format(ADDRESS_ETCD),
+                        help='Address(with port number) of the etcd daemon (default: {})'.format(
+                            ADDRESS_ETCD),
                         default=ADDRESS_ETCD)
 
     parser.add_argument('-k', '--key-type',
@@ -107,7 +113,7 @@ def main():
 
     parser.add_argument('-v', '--value-type',
                         help='The value type in the etcd database (default: json).',
-                        choices=['json', 'binary'],
+                        choices=['json', 'binary', 'utf8'],
                         default='json')
 
     parser.add_argument('-f', '--output-format',
@@ -126,7 +132,8 @@ def main():
     if output_file and output_file.startswith('~'):
         output_file = os.path.expanduser(output_file)
 
-    react(export_as_csv if args.output_format == 'csv' else export_as_json, (args.key_type, args.value_type, output_file, args.address))
+    react(export_as_csv if args.output_format == 'csv' else export_as_json,
+          (args.key_type, args.value_type, output_file, args.address))
 
 
 if __name__ == '__main__':
