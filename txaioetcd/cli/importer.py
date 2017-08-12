@@ -105,6 +105,11 @@ def main():
                         choices=['json', 'binary', 'utf8'],
                         default='json')
 
+    parser.add_argument('-f', '--input-format',
+                        help='The input format for the database file (default: json).',
+                        choices=['json', 'csv'],
+                        default='json')
+
     args = parser.parse_args()
 
     input_file = os.path.expanduser(args.input_file)
@@ -112,9 +117,8 @@ def main():
         print('Error: Input file {} does not exist.'.format(input_file))
         exit(1)
 
-    input_format = TYPE_CSV if input_file.endswith(TYPE_CSV) else TYPE_JSON
-
-    react(import_to_db, (args.key_type, args.value_type, input_format, input_file, args.address))
+    react(import_to_db,
+          (args.key_type, args.value_type, args.input_format, input_file, args.address))
 
 
 if __name__ == '__main__':
