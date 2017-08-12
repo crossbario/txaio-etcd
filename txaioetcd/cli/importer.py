@@ -29,11 +29,12 @@ import base64
 import csv
 import json
 import os
+import sys
 
 from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from txaioetcd import Client, Transaction, OpSet
+from txaioetcd import Client, Transaction, OpSet, OpDel
 from txaioetcd.cli.exporter import get_all_keys, ADDRESS_ETCD
 
 TYPE_CSV = 'csv'
@@ -58,30 +59,71 @@ def json_to_dict(json_file):
 
 
 @inlineCallbacks
-def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_address):
-    result = yield get_all_keys(reactor, key_type, value_type, etcd_address)
+def get_input_content(input_format, input_file, value_type):
     if input_format == TYPE_CSV:
         input_content = yield csv_to_dict(input_file, value_type)
     elif input_format == TYPE_JSON:
         input_content = yield json_to_dict(input_file)
     else:
         raise ValueError('Only csv and json input is supported.')
+    returnValue(input_content)
 
-    to_update = []
-    for k, v in input_content.items():
+
+def get_db_diff(old_database, to_import_database, key_type, value_type):
+    diff = {}
+    to_update = {}
+    to_delete = {}
+
+    for k, v in to_import_database.items():
+
         if key_type == u'binary':
-            k = base64.b64decode(k)
+            k = base64.b64encode(k)
+
         if value_type == u'binary':
-            v = base64.b64decode(v)
-        if result.get(k, None) != v:
+            v = base64.b64encode(v)
+
+        if old_database.get(k, None) != v:
             if not isinstance(k, bytes):
                 k = k.encode()
             if not isinstance(v, bytes):
                 v = v.encode()
-            to_update.append(OpSet(k, v))
+            to_update.update({k: v})
 
-    etcd = Client(reactor, etcd_address)
-    yield etcd.submit(Transaction(success=to_update))
+    diff.update({'to_update': to_update, 'to_delete': to_delete})
+    return diff
+
+
+@inlineCallbacks
+def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_address, dry_run,
+                 dry_output, verbosity):
+    db_current = yield get_all_keys(reactor, key_type, value_type, etcd_address)
+    db_import = yield get_input_content(input_format, input_file, value_type)
+    db_diff = yield get_db_diff(db_current, db_import, key_type, value_type)
+
+    transaction = []
+
+    if dry_run:
+        if dry_output:
+            with open(dry_output, 'w') as file:
+                json.dump(db_diff, file, sort_keys=True, indent=4, ensure_ascii=False)
+        else:
+            json.dump(db_diff, sys.stdout, sort_keys=True, indent=4, ensure_ascii=False)
+            print('\n')
+    else:
+        for k, v in db_diff['to_update'].items():
+            transaction.append(OpSet(k, v))
+
+        for key in db_diff['to_delete'].keys():
+            transaction.append(OpDel(key))
+
+        etcd = Client(reactor, etcd_address)
+        yield etcd.submit(Transaction(success=transaction))
+        if verbosity == 'verbose':
+            json.dump(db_diff, sys.stdout, sort_keys=True, indent=4, ensure_ascii=False)
+            print('\n')
+        elif verbosity == 'compact':
+            print('{} updated.'.format(len(db_diff['to_update'])))
+            print('{} deleted.'.format(len(db_diff['to_delete'])))
 
 
 def main():
@@ -110,6 +152,15 @@ def main():
                         choices=['json', 'csv'],
                         default='json')
 
+    parser.add_argument('-d', '--dry-run', action='store_true', default=False,
+                        help='Print the potential changes to import.')
+
+    parser.add_argument('-o', '--dry-output',
+                        help='The file to put the result of dry run (default: stdout).')
+
+    parser.add_argument('--verbosity', default='silent', choices=['silent', 'compact', 'verbose'],
+                        help='Set the verbosity level.')
+
     args = parser.parse_args()
 
     input_file = os.path.expanduser(args.input_file)
@@ -117,8 +168,11 @@ def main():
         print('Error: Input file {} does not exist.'.format(input_file))
         exit(1)
 
-    react(import_to_db,
-          (args.key_type, args.value_type, args.input_format, input_file, args.address))
+    react(
+        import_to_db,
+        (args.key_type, args.value_type, args.input_format, input_file, args.address, args.dry_run,
+         args.dry_output, args.verbosity)
+    )
 
 
 if __name__ == '__main__':
