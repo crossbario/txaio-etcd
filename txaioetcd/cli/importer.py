@@ -77,10 +77,10 @@ def get_db_diff(old_database, to_import_database, key_type, value_type):
     for k, v in to_import_database.items():
 
         if key_type == u'binary':
-            k = base64.b64encode(k)
+            k = base64.b64decode(k)
 
         if value_type == u'binary':
-            v = base64.b64encode(v)
+            v = base64.b64decode(v)
 
         if old_database.get(k, None) != v:
             if not isinstance(k, bytes):
