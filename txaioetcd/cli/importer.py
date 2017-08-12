@@ -29,6 +29,7 @@ import base64
 import csv
 import json
 import os
+import pprint
 import sys
 
 from twisted.internet.task import react
@@ -72,7 +73,6 @@ def get_input_content(input_format, input_file, value_type):
 def get_db_diff(old_database, to_import_database, key_type, value_type):
     diff = {}
     to_update = {}
-    to_delete = {}
 
     for k, v in to_import_database.items():
 
@@ -82,15 +82,23 @@ def get_db_diff(old_database, to_import_database, key_type, value_type):
         if value_type == u'binary':
             v = base64.b64decode(v)
 
-        if old_database.get(k, None) != v:
-            if not isinstance(k, bytes):
-                k = k.encode()
-            if not isinstance(v, bytes):
-                v = v.encode()
+        if k not in old_database or old_database[k] != v:
             to_update.update({k: v})
 
-    diff.update({'to_update': to_update, 'to_delete': to_delete})
+        if k in old_database:
+            del old_database[k]
+
+    diff.update({'to_update': to_update, 'to_delete': list(old_database.keys())})
     return diff
+
+
+def pretty_print(data, key_type, value_type, dry_output=None):
+    if u'binary' in [key_type, value_type]:
+        pprint.pprint(data, open(dry_output, 'w') if dry_output else sys.stdout)
+    else:
+        json.dump(data, open(dry_output, 'w') if dry_output else sys.stdout, sort_keys=True,
+                  indent=4, ensure_ascii=False)
+        print('\n')
 
 
 @inlineCallbacks
@@ -103,24 +111,24 @@ def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_a
     transaction = []
 
     if dry_run:
-        if dry_output:
-            with open(dry_output, 'w') as file:
-                json.dump(db_diff, file, sort_keys=True, indent=4, ensure_ascii=False)
-        else:
-            json.dump(db_diff, sys.stdout, sort_keys=True, indent=4, ensure_ascii=False)
-            print('\n')
+        pretty_print(db_diff, key_type, value_type, dry_output)
     else:
         for k, v in db_diff['to_update'].items():
+            if not isinstance(k, bytes):
+                k = k.encode()
+            if not isinstance(v, bytes):
+                v = v.encode()
             transaction.append(OpSet(k, v))
 
-        for key in db_diff['to_delete'].keys():
+        for key in db_diff['to_delete']:
+            if not isinstance(key, bytes):
+                key = key.encode()
             transaction.append(OpDel(key))
 
         etcd = Client(reactor, etcd_address)
         yield etcd.submit(Transaction(success=transaction))
         if verbosity == 'verbose':
-            json.dump(db_diff, sys.stdout, sort_keys=True, indent=4, ensure_ascii=False)
-            print('\n')
+            pretty_print(db_diff, key_type, value_type, dry_output)
         elif verbosity == 'compact':
             print('{} updated.'.format(len(db_diff['to_update'])))
             print('{} deleted.'.format(len(db_diff['to_delete'])))
