@@ -376,7 +376,7 @@ These can be used to export and import data from and to etcd.
 
 The tools support various options for key/value types and input/output format, eg the exporter:
 
-.. highlight:: console
+.. code-block:: console
 
     (cpy362_1) oberstet@thinkpad-t430s:~$ etcd-export --help
     usage: etcd-export [-h] [-a ADDRESS] [-k {utf8,binary}]
@@ -402,7 +402,7 @@ The tools support various options for key/value types and input/output format, e
 
 and the importer:
 
-.. highlight:: console
+.. code-block:: console
 
     (cpy362_1) oberstet@thinkpad-t430s:~$ etcd-import --help
     usage: etcd-import [-h] [-a ADDRESS] [-k {utf8,binary}]
