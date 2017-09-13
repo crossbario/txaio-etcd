@@ -35,6 +35,7 @@ from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txaioetcd import Client
+from txaioetcd._version import __version__
 
 ADDRESS_ETCD = u'http://localhost:2379'
 
@@ -125,6 +126,9 @@ def main():
                         '--output-file',
                         default=None,
                         help='Path for the output file. When unset, output goes to stdout.')
+
+    parser.add_argument('--version', action='version',
+                        version='txaio-etcd version: {}'.format(__version__))
 
     args = parser.parse_args()
 

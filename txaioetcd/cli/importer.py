@@ -37,6 +37,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txaioetcd import Client, Transaction, OpSet, OpDel
 from txaioetcd.cli.exporter import get_all_keys, ADDRESS_ETCD
+from txaioetcd._version import __version__
 
 TYPE_CSV = 'csv'
 TYPE_JSON = 'json'
@@ -168,6 +169,9 @@ def main():
 
     parser.add_argument('--verbosity', default='silent', choices=['silent', 'compact', 'verbose'],
                         help='Set the verbosity level.')
+
+    parser.add_argument('--version', action='version',
+                        version='txaio-etcd version: {}'.format(__version__))
 
     args = parser.parse_args()
 
