@@ -54,6 +54,7 @@ setup(
         'twisted>=16.6.0',              # MIT
         'treq>=16.12.0',                # MIT
         'txaio>=2.6.1',                 # MIT
+        'aiohttp>=2.2.5',               # Apache 2.0
     ],
     extras_require={
         'dev': extras_require_dev,
