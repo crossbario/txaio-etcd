@@ -31,10 +31,16 @@ import os
 import sys
 import binascii
 
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 from twisted.internet.task import react
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txaioetcd import Client
+from txaioetcd._version import __version__
 
 ADDRESS_ETCD = u'http://localhost:2379'
 
@@ -89,13 +95,16 @@ def export_as_json(reactor, key_type, value_type, output_path, etcd_address):
 @inlineCallbacks
 def export_as_csv(reactor, key_type, value_type, output_path, etcd_address):
     res = yield get_all_keys(reactor, key_type, value_type, etcd_address)
-    with open(output_path, 'w') as file:
-        writer = csv.writer(file)
-        for k, v in res.items():
-            if value_type == u'utf8':
-                writer.writerow([k, v])
-            else:
-                writer.writerow([k, json.dumps(v, separators=(',', ':'), ensure_ascii=False)])
+    file = open(output_path, 'w') if output_path else StringIO()
+    writer = csv.writer(file)
+    for k, v in res.items():
+        if value_type == u'utf8':
+            writer.writerow([k, v])
+        else:
+            writer.writerow([k, json.dumps(v, separators=(',', ':'), ensure_ascii=False)])
+
+    if not output_path:
+        print(file.getvalue())
 
 
 def main():
@@ -125,6 +134,9 @@ def main():
                         '--output-file',
                         default=None,
                         help='Path for the output file. When unset, output goes to stdout.')
+
+    parser.add_argument('--version', action='version',
+                        version='txaio-etcd version: {}'.format(__version__))
 
     args = parser.parse_args()
 
