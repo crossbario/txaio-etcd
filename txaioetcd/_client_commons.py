@@ -27,28 +27,6 @@ class StatusRequestAssembler:
         return {}
 
 
-class T:
-    def __init__(self, root_url):
-        self._data = None
-        self._url = ENDPOINT_GET.format(root_url).encode()
-        self.__validate()
-        self.__assemble()
-
-    @property
-    def url(self):
-        return self._url
-
-    @property
-    def data(self):
-        return self._data
-
-    def __assemble(self):
-        pass
-
-    def __validate(self):
-        pass
-
-
 class PutRequestAssembler:
     def __init__(self, root_url, key, value, lease=None, return_previous=None):
         self._key = key
