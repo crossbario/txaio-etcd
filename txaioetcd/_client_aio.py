@@ -31,8 +31,8 @@ import base64
 
 import aiohttp
 
-from txaioetcd import Header, Status, Deleted, \
-    Revision, Error, Failed, Success, Range, Lease
+from txaioetcd import Status, Deleted, Revision, \
+    Failed, Success, Range, Lease
 from txaioetcd._client_commons import (
     validate_client_set_parameters,
     validate_client_get_parameters,
@@ -62,11 +62,13 @@ class Client:
         self._session = aiohttp.ClientSession()
         self._timeout = timeout
 
+    async def _post(self, url, data, timeout):
+        response = await self._session.post(url, json=data, timeout=timeout)
+        return await response.json()
+
     async def status(self, timeout=None):
         url = u'{}/v3alpha/maintenance/status'.format(self._url)
-        response = await self._session.post(url, json={}, timeout=timeout)
-        obj = await response.json()
-        return Status._parse(obj)
+        return Status._parse(await self._post(url, {}, timeout))
 
     async def set(self, key, value, lease=None, return_previous=None, timeout=None):
         validate_client_set_parameters(key, value, lease, return_previous)
@@ -81,10 +83,7 @@ class Client:
         if lease and lease.lease_id:
             data[u'lease'] = lease.lease_id
 
-        response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
-        obj = await response.json()
-
-        return Revision._parse(obj)
+        return Revision._parse(await self._post(url, data, timeout))
 
     async def get(self,
             key,
@@ -109,9 +108,7 @@ class Client:
         if range_end:
             data[u'range_end'] = base64.b64encode(range_end).decode()
 
-        response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
-        obj = await response.json()
-        return Range._parse(obj)
+        return Range._parse(await self._post(url, data, timeout))
 
     async def delete(self, key, return_previous=None, timeout=None):
         key, range_end = validate_client_delete_parameters(key, return_previous)
@@ -140,9 +137,7 @@ class Client:
             #
             data[u'prev_kv'] = True
 
-        response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
-        obj = await response.json()
-        return Deleted._parse(obj)
+        return Deleted._parse(await self._post(url, data, timeout))
 
     async def watch(self, keys, on_watch, start_revision=None, timeout=None):
         raise Exception('not implemented')
@@ -151,8 +146,7 @@ class Client:
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
         data = txn._marshal()
 
-        response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
-        obj = await response.json()
+        obj = await self._post(url, data, timeout)
 
         header, responses = validate_client_submit_response(obj)
 
@@ -171,6 +165,4 @@ class Client:
 
         url = u'{}/v3alpha/lease/grant'.format(self._url)
 
-        response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
-        obj = await response.json()
-        return Lease._parse(self, obj)
+        return Lease._parse(self, await self._post(url, data, timeout))

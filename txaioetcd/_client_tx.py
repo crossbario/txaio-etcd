@@ -214,6 +214,12 @@ class Client(object):
         self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
 
     @inlineCallbacks
+    def _post(self, url, data, timeout):
+        response = yield treq.post(url, json=data, timeout=(timeout or self._timeout))
+        json_data = yield treq.json_content(response)
+        returnValue(json_data)
+
+    @inlineCallbacks
     def status(self, timeout=None):
         """
         Get etcd status.
@@ -225,13 +231,11 @@ class Client(object):
         :rtype: instance of :class:`txaioetcd.Status`
         """
         url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
-        obj = {
+        data = {
             # yes, we must provide an empty dict for the request!
         }
-        data = json.dumps(obj).encode('utf8')
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         status = Status._parse(obj)
 
@@ -270,19 +274,16 @@ class Client(object):
         validate_client_set_parameters(key, value, lease, return_previous)
 
         url = u'{}/v3alpha/kv/put'.format(self._url).encode()
-        obj = {
+        data = {
             u'key': base64.b64encode(key).decode(),
             u'value': base64.b64encode(value).decode()
         }
         if return_previous:
-            obj[u'prev_kv'] = True
+            data[u'prev_kv'] = True
         if lease and lease.lease_id:
-            obj[u'lease'] = lease.lease_id
+            data[u'lease'] = lease.lease_id
 
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         revision = Revision._parse(obj)
 
@@ -373,19 +374,15 @@ class Client(object):
         key, range_end = validate_client_get_parameters(key, range_end)
 
         url = u'{}/v3alpha/kv/range'.format(self._url).encode()
-        obj = {
+        data = {
             u'key': base64.b64encode(key.key).decode()
         }
         if range_end:
-            obj[u'range_end'] = base64.b64encode(range_end).decode()
+            data[u'range_end'] = base64.b64encode(range_end).decode()
 
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         result = Range._parse(obj)
-        # count = int(obj.get(u'count', 0))
 
         returnValue(result)
 
@@ -409,7 +406,7 @@ class Client(object):
         key, range_end = validate_client_delete_parameters(key, return_previous)
 
         url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
-        obj = {
+        data = {
             u'key': base64.b64encode(key.key).decode(),
         }
         if range_end:
@@ -422,7 +419,7 @@ class Client(object):
             # If range_end is '\\0', the range is all keys greater
             # than or equal to the key argument.
             #
-            obj[u'range_end'] = base64.b64encode(range_end).decode()
+            data[u'range_end'] = base64.b64encode(range_end).decode()
 
         if return_previous:
             # If prev_kv is set, etcd gets the previous key-value pairs
@@ -430,12 +427,9 @@ class Client(object):
             # The previous key-value pairs will be returned in the
             # delete response.
             #
-            obj[u'prev_kv'] = True
+            data[u'prev_kv'] = True
 
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         deleted = Deleted._parse(obj)
 
@@ -605,11 +599,9 @@ class Client(object):
             :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
         url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
-        obj = txn._marshal()
-        data = json.dumps(obj).encode('utf8')
+        data = txn._marshal()
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         header, responses = validate_client_submit_response(obj)
 
@@ -645,16 +637,14 @@ class Client(object):
         """
         validate_client_lease_parameters(time_to_live, lease_id)
 
-        obj = {
+        data = {
             u'TTL': time_to_live,
             u'ID': lease_id or 0,
         }
-        data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
         lease = Lease._parse(self, obj)
 
