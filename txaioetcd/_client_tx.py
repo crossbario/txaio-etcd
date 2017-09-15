@@ -44,19 +44,11 @@ from txaioetcd import KeySet, KeyValue, Status, Deleted, \
     Revision, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
+from txaioetcd import _client_commons as commons
 from txaioetcd._client_commons import (
-    validate_client_set_parameters,
-    validate_client_get_parameters,
-    validate_client_delete_parameters,
-    validate_client_lease_parameters,
     validate_client_submit_response,
-    ENDPOINT_STATUS,
-    ENDPOINT_SET,
-    ENDPOINT_GET,
-    ENDPOINT_DELETE,
     ENDPOINT_WATCH,
     ENDPOINT_SUBMIT,
-    ENDPOINT_LEASE,
 )
 
 import txaio
@@ -237,12 +229,9 @@ class Client(object):
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
-        url = ENDPOINT_STATUS.format(self._url).encode()
-        data = {
-            # yes, we must provide an empty dict for the request!
-        }
+        assembler = commons.StatusRequestAssembler(self._url)
 
-        obj = yield self._post(url, data, timeout)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         status = Status._parse(obj)
 
@@ -278,19 +267,9 @@ class Client(object):
         :returns: Revision info
         :rtype: instance of :class:`txaioetcd.Revision`
         """
-        validate_client_set_parameters(key, value, lease, return_previous)
+        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
 
-        url = ENDPOINT_SET.format(self._url).encode()
-        data = {
-            u'key': base64.b64encode(key).decode(),
-            u'value': base64.b64encode(value).decode()
-        }
-        if return_previous:
-            data[u'prev_kv'] = True
-        if lease and lease.lease_id:
-            data[u'lease'] = lease.lease_id
-
-        obj = yield self._post(url, data, timeout)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         revision = Revision._parse(obj)
 
@@ -378,16 +357,9 @@ class Client(object):
         :param timeout: Request timeout in seconds.
         :type timeout: int or None
         """
-        key, range_end = validate_client_get_parameters(key, range_end)
+        assembler = commons.GetRequestAssembler(self._url, key, range_end)
 
-        url = ENDPOINT_GET.format(self._url).encode()
-        data = {
-            u'key': base64.b64encode(key.key).decode()
-        }
-        if range_end:
-            data[u'range_end'] = base64.b64encode(range_end).decode()
-
-        obj = yield self._post(url, data, timeout)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         result = Range._parse(obj)
 
@@ -410,33 +382,9 @@ class Client(object):
         :returns: Deletion info
         :rtype: instance of :class:`txaioetcd.Deleted`
         """
-        key, range_end = validate_client_delete_parameters(key, return_previous)
+        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
 
-        url = ENDPOINT_DELETE.format(self._url).encode()
-        data = {
-            u'key': base64.b64encode(key.key).decode(),
-        }
-        if range_end:
-            # range_end is the key following the last key to delete
-            # for the range [key, range_end).
-            # If range_end is not given, the range is defined to contain only
-            # the key argument.
-            # If range_end is one bit larger than the given key, then the range
-            # is all keys with the prefix (the given key).
-            # If range_end is '\\0', the range is all keys greater
-            # than or equal to the key argument.
-            #
-            data[u'range_end'] = base64.b64encode(range_end).decode()
-
-        if return_previous:
-            # If prev_kv is set, etcd gets the previous key-value pairs
-            # before deleting it.
-            # The previous key-value pairs will be returned in the
-            # delete response.
-            #
-            data[u'prev_kv'] = True
-
-        obj = yield self._post(url, data, timeout)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         deleted = Deleted._parse(obj)
 
@@ -642,16 +590,9 @@ class Client(object):
             can be used for refreshing or revoking the least etc.
         :rtype: instance of :class:`txaioetcd.Lease`
         """
-        validate_client_lease_parameters(time_to_live, lease_id)
+        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
 
-        data = {
-            u'TTL': time_to_live,
-            u'ID': lease_id or 0,
-        }
-
-        url = ENDPOINT_LEASE.format(self._url).encode()
-
-        obj = yield self._post(url, data, timeout)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         lease = Lease._parse(self, obj)
 

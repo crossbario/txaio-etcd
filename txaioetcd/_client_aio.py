@@ -27,25 +27,11 @@
 
 from __future__ import absolute_import
 
-import base64
-
 import aiohttp
 
 from txaioetcd import Status, Deleted, Revision, \
     Failed, Success, Range, Lease
-from txaioetcd._client_commons import (
-    validate_client_set_parameters,
-    validate_client_get_parameters,
-    validate_client_delete_parameters,
-    validate_client_lease_parameters,
-    validate_client_submit_response,
-    ENDPOINT_STATUS,
-    ENDPOINT_SET,
-    ENDPOINT_GET,
-    ENDPOINT_DELETE,
-    ENDPOINT_SUBMIT,
-    ENDPOINT_LEASE,
-)
+from txaioetcd import _client_commons as commons
 
 import txaio
 txaio.use_asyncio()
@@ -73,23 +59,18 @@ class Client:
         return await response.json()
 
     async def status(self, timeout=None):
-        url = ENDPOINT_STATUS.format(self._url)
-        return Status._parse(await self._post(url, {}, timeout))
+        assembler = commons.StatusRequestAssembler(self._url)
+
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Status._parse(obj)
 
     async def set(self, key, value, lease=None, return_previous=None, timeout=None):
-        validate_client_set_parameters(key, value, lease, return_previous)
+        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
 
-        url = ENDPOINT_SET.format(self._url)
-        data = {
-            u'key': base64.b64encode(key).decode(),
-            u'value': base64.b64encode(value).decode()
-        }
-        if return_previous:
-            data[u'prev_kv'] = True
-        if lease and lease.lease_id:
-            data[u'lease'] = lease.lease_id
+        obj = await self._post(assembler.url, assembler.data, timeout)
 
-        return Revision._parse(await self._post(url, data, timeout))
+        return Revision._parse(obj)
 
     async def get(self,
             key,
@@ -105,56 +86,29 @@ class Client:
             sort_order=None,
             sort_target=None,
             timeout=None):
-        key, range_end = validate_client_get_parameters(key, range_end)
+        assembler = commons.GetRequestAssembler(self._url, key, range_end)
 
-        url = ENDPOINT_GET.format(self._url)
-        data = {
-            u'key': base64.b64encode(key.key).decode()
-        }
-        if range_end:
-            data[u'range_end'] = base64.b64encode(range_end).decode()
+        obj = await self._post(assembler.url, assembler.data, timeout)
 
-        return Range._parse(await self._post(url, data, timeout))
+        return Range._parse(obj)
 
     async def delete(self, key, return_previous=None, timeout=None):
-        key, range_end = validate_client_delete_parameters(key, return_previous)
+        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
 
-        url = ENDPOINT_DELETE.format(self._url)
-        data = {
-            u'key': base64.b64encode(key.key).decode(),
-        }
-        if range_end:
-            # range_end is the key following the last key to delete
-            # for the range [key, range_end).
-            # If range_end is not given, the range is defined to contain only
-            # the key argument.
-            # If range_end is one bit larger than the given key, then the range
-            # is all keys with the prefix (the given key).
-            # If range_end is '\\0', the range is all keys greater
-            # than or equal to the key argument.
-            #
-            data[u'range_end'] = base64.b64encode(range_end).decode()
+        obj = await self._post(assembler.url, assembler.data, timeout)
 
-        if return_previous:
-            # If prev_kv is set, etcd gets the previous key-value pairs
-            # before deleting it.
-            # The previous key-value pairs will be returned in the
-            # delete response.
-            #
-            data[u'prev_kv'] = True
-
-        return Deleted._parse(await self._post(url, data, timeout))
+        return Deleted._parse(obj)
 
     async def watch(self, keys, on_watch, start_revision=None, timeout=None):
         raise Exception('not implemented')
 
     async def submit(self, txn, timeout=None):
-        url = ENDPOINT_SUBMIT.format(self._url).encode()
+        url = commons.ENDPOINT_SUBMIT.format(self._url).encode()
         data = txn._marshal()
 
         obj = await self._post(url, data, timeout)
 
-        header, responses = validate_client_submit_response(obj)
+        header, responses = commons.validate_client_submit_response(obj)
 
         if obj.get(u'succeeded', False):
             return Success(header, responses)
@@ -162,13 +116,8 @@ class Client:
             raise Failed(header, responses)
 
     async def lease(self, time_to_live, lease_id=None, timeout=None):
-        validate_client_lease_parameters(time_to_live, lease_id)
+        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
 
-        data = {
-            u'TTL': time_to_live,
-            u'ID': lease_id or 0,
-        }
+        obj = await self._post(assembler.url, assembler.data, timeout)
 
-        url = ENDPOINT_LEASE.format(self._url)
-
-        return Lease._parse(self, await self._post(url, data, timeout))
+        return Lease._parse(self, obj)
