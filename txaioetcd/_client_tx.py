@@ -40,8 +40,8 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
-    Revision, Error, Failed, Success, Range, Lease
+from txaioetcd import KeySet, KeyValue, Status, Deleted, \
+    Revision, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
 from txaioetcd._client_commons import (
@@ -50,6 +50,13 @@ from txaioetcd._client_commons import (
     validate_client_delete_parameters,
     validate_client_lease_parameters,
     validate_client_submit_response,
+    ENDPOINT_STATUS,
+    ENDPOINT_SET,
+    ENDPOINT_GET,
+    ENDPOINT_DELETE,
+    ENDPOINT_WATCH,
+    ENDPOINT_SUBMIT,
+    ENDPOINT_LEASE,
 )
 
 import txaio
@@ -230,7 +237,7 @@ class Client(object):
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
-        url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
+        url = ENDPOINT_STATUS.format(self._url).encode()
         data = {
             # yes, we must provide an empty dict for the request!
         }
@@ -273,7 +280,7 @@ class Client(object):
         """
         validate_client_set_parameters(key, value, lease, return_previous)
 
-        url = u'{}/v3alpha/kv/put'.format(self._url).encode()
+        url = ENDPOINT_SET.format(self._url).encode()
         data = {
             u'key': base64.b64encode(key).decode(),
             u'value': base64.b64encode(value).decode()
@@ -373,7 +380,7 @@ class Client(object):
         """
         key, range_end = validate_client_get_parameters(key, range_end)
 
-        url = u'{}/v3alpha/kv/range'.format(self._url).encode()
+        url = ENDPOINT_GET.format(self._url).encode()
         data = {
             u'key': base64.b64encode(key.key).decode()
         }
@@ -405,7 +412,7 @@ class Client(object):
         """
         key, range_end = validate_client_delete_parameters(key, return_previous)
 
-        url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
+        url = ENDPOINT_DELETE.format(self._url).encode()
         data = {
             u'key': base64.b64encode(key.key).decode(),
         }
@@ -469,7 +476,7 @@ class Client(object):
     def _start_watching(self, keys, on_watch, filters, start_revision, return_previous):
         data = []
         headers = dict()
-        url = u'{}/v3alpha/watch'.format(self._url).encode()
+        url = ENDPOINT_WATCH.format(self._url).encode()
 
         # create watches for all key prefixes
         for key in keys:
@@ -598,7 +605,7 @@ class Client(object):
         :rtype: instance of :class:`txaioetcd.Success`,
             :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
-        url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
+        url = ENDPOINT_SUBMIT.format(self._url).encode()
         data = txn._marshal()
 
         obj = yield self._post(url, data, timeout)
@@ -642,7 +649,7 @@ class Client(object):
             u'ID': lease_id or 0,
         }
 
-        url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
+        url = ENDPOINT_LEASE.format(self._url).encode()
 
         obj = yield self._post(url, data, timeout)
 

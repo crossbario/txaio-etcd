@@ -3,6 +3,14 @@ import six
 from txaioetcd import Lease, KeySet, Error, Revision, Deleted, Range, Header
 from txaioetcd._types import _increment_last_byte
 
+ENDPOINT_STATUS = '{}/v3alpha/maintenance/status'
+ENDPOINT_SET = '{}/v3alpha/kv/put'
+ENDPOINT_GET = '{}/v3alpha/kv/range'
+ENDPOINT_DELETE = '{}/v3alpha/kv/deleterange'
+ENDPOINT_WATCH = '{}/v3alpha/watch'
+ENDPOINT_SUBMIT = '{}/v3alpha/kv/txn'
+ENDPOINT_LEASE = '{}/v3alpha/lease/grant'
+
 
 def validate_client_set_parameters(key, value, lease=None, return_previous=None):
     if type(key) != six.binary_type:

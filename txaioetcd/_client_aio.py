@@ -39,6 +39,12 @@ from txaioetcd._client_commons import (
     validate_client_delete_parameters,
     validate_client_lease_parameters,
     validate_client_submit_response,
+    ENDPOINT_STATUS,
+    ENDPOINT_SET,
+    ENDPOINT_GET,
+    ENDPOINT_DELETE,
+    ENDPOINT_SUBMIT,
+    ENDPOINT_LEASE,
 )
 
 import txaio
@@ -67,13 +73,13 @@ class Client:
         return await response.json()
 
     async def status(self, timeout=None):
-        url = u'{}/v3alpha/maintenance/status'.format(self._url)
+        url = ENDPOINT_STATUS.format(self._url)
         return Status._parse(await self._post(url, {}, timeout))
 
     async def set(self, key, value, lease=None, return_previous=None, timeout=None):
         validate_client_set_parameters(key, value, lease, return_previous)
 
-        url = u'{}/v3alpha/kv/put'.format(self._url)
+        url = ENDPOINT_SET.format(self._url)
         data = {
             u'key': base64.b64encode(key).decode(),
             u'value': base64.b64encode(value).decode()
@@ -101,7 +107,7 @@ class Client:
             timeout=None):
         key, range_end = validate_client_get_parameters(key, range_end)
 
-        url = u'{}/v3alpha/kv/range'.format(self._url)
+        url = ENDPOINT_GET.format(self._url)
         data = {
             u'key': base64.b64encode(key.key).decode()
         }
@@ -113,7 +119,7 @@ class Client:
     async def delete(self, key, return_previous=None, timeout=None):
         key, range_end = validate_client_delete_parameters(key, return_previous)
 
-        url = u'{}/v3alpha/kv/deleterange'.format(self._url)
+        url = ENDPOINT_DELETE.format(self._url)
         data = {
             u'key': base64.b64encode(key.key).decode(),
         }
@@ -143,7 +149,7 @@ class Client:
         raise Exception('not implemented')
 
     async def submit(self, txn, timeout=None):
-        url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
+        url = ENDPOINT_SUBMIT.format(self._url).encode()
         data = txn._marshal()
 
         obj = await self._post(url, data, timeout)
@@ -163,6 +169,6 @@ class Client:
             u'ID': lease_id or 0,
         }
 
-        url = u'{}/v3alpha/lease/grant'.format(self._url)
+        url = ENDPOINT_LEASE.format(self._url)
 
         return Lease._parse(self, await self._post(url, data, timeout))
