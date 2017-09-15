@@ -31,9 +31,15 @@ import base64
 
 import aiohttp
 
-from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
+from txaioetcd import Header, Status, Deleted, \
     Revision, Error, Failed, Success, Range, Lease
-from txaioetcd._types import _increment_last_byte
+from txaioetcd._client_commons import (
+    validate_client_set_parameters,
+    validate_client_get_parameters,
+    validate_client_delete_parameters,
+    validate_client_lease_parameters,
+    validate_client_submit_response,
+)
 
 import txaio
 txaio.use_asyncio()
@@ -63,17 +69,7 @@ class Client:
         return Status._parse(obj)
 
     async def set(self, key, value, lease=None, return_previous=None, timeout=None):
-        if type(key) != bytes:
-            raise TypeError('key must be bytes, not {}'.format(type(key)))
-
-        if type(value) != bytes:
-            raise TypeError('value must be bytes, not {}'.format(type(value)))
-
-        if lease is not None and not isinstance(lease, Lease):
-            raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+        validate_client_set_parameters(key, value, lease, return_previous)
 
         url = u'{}/v3alpha/kv/put'.format(self._url)
         data = {
@@ -104,24 +100,7 @@ class Client:
             sort_order=None,
             sort_target=None,
             timeout=None):
-        if type(key) == bytes:
-            if range_end:
-                key = KeySet(key, range_end=range_end)
-            else:
-                key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
-
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
+        key, range_end = validate_client_get_parameters(key, range_end)
 
         url = u'{}/v3alpha/kv/range'.format(self._url)
         data = {
@@ -135,24 +114,7 @@ class Client:
         return Range._parse(obj)
 
     async def delete(self, key, return_previous=None, timeout=None):
-        if type(key) == bytes:
-            key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
-
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
+        key, range_end = validate_client_delete_parameters(key, return_previous)
 
         url = u'{}/v3alpha/kv/deleterange'.format(self._url)
         data = {
@@ -192,33 +154,7 @@ class Client:
         response = await self._session.post(url, json=data, timeout=timeout or self._timeout)
         obj = await response.json()
 
-        if u'error' in obj:
-            error = Error._parse(obj)
-            raise error
-
-        if u'header' in obj:
-            header = Header._parse(obj[u'header'])
-        else:
-            header = None
-
-        responses = []
-        for r in obj.get(u'responses', []):
-            if len(r.keys()) != 1:
-                raise Exception(
-                    'bogus transaction response (multiple response tags in item): {}'.format(obj))
-
-            first = list(r.keys())[0]
-
-            if first == u'response_put':
-                re = Revision._parse(r[u'response_put'])
-            elif first == u'response_delete_range':
-                re = Deleted._parse(r[u'response_delete_range'])
-            elif first == u'response_range':
-                re = Range._parse(r[u'response_range'])
-            else:
-                raise Exception('response item "{}" bogus or not implemented'.format(first))
-
-            responses.append(re)
+        header, responses = validate_client_submit_response(obj)
 
         if obj.get(u'succeeded', False):
             return Success(header, responses)
@@ -226,14 +162,7 @@ class Client:
             raise Failed(header, responses)
 
     async def lease(self, time_to_live, lease_id=None, timeout=None):
-        if lease_id is not None and type(lease_id) not in int:
-            raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
-
-        if type(time_to_live) not in int:
-            raise TypeError('time_to_live must be integer, not {}'.format(type(time_to_live)))
-
-        if time_to_live < 1:
-            raise TypeError('time_to_live must >= 1 second, was {}'.format(time_to_live))
+        validate_client_lease_parameters(time_to_live, lease_id)
 
         data = {
             u'TTL': time_to_live,

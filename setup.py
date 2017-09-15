@@ -48,7 +48,7 @@ setup(
     author='Crossbar.io Technologies GmbH',
     author_email='autobahnws@googlegroups.com',
     url='https://github.com/crossbario/txaio-etcd',
-    platforms=('Any'),
+    platforms=('Any', ),
     install_requires=[
         'six>=1.10.0',                  # MIT
         'twisted>=16.6.0',              # MIT

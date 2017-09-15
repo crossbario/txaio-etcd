@@ -44,6 +44,13 @@ from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
     Revision, Error, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
+from txaioetcd._client_commons import (
+    validate_client_set_parameters,
+    validate_client_get_parameters,
+    validate_client_delete_parameters,
+    validate_client_lease_parameters,
+    validate_client_submit_response,
+)
 
 import txaio
 txaio.use_twisted()
@@ -260,17 +267,7 @@ class Client(object):
         :returns: Revision info
         :rtype: instance of :class:`txaioetcd.Revision`
         """
-        if type(key) != six.binary_type:
-            raise TypeError('key must be bytes, not {}'.format(type(key)))
-
-        if type(value) != six.binary_type:
-            raise TypeError('value must be bytes, not {}'.format(type(value)))
-
-        if lease is not None and not isinstance(lease, Lease):
-            raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
+        validate_client_set_parameters(key, value, lease, return_previous)
 
         url = u'{}/v3alpha/kv/put'.format(self._url).encode()
         obj = {
@@ -373,24 +370,7 @@ class Client(object):
         :param timeout: Request timeout in seconds.
         :type timeout: int or None
         """
-        if type(key) == six.binary_type:
-            if range_end:
-                key = KeySet(key, range_end=range_end)
-            else:
-                key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
-
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
+        key, range_end = validate_client_get_parameters(key, range_end)
 
         url = u'{}/v3alpha/kv/range'.format(self._url).encode()
         obj = {
@@ -426,24 +406,7 @@ class Client(object):
         :returns: Deletion info
         :rtype: instance of :class:`txaioetcd.Deleted`
         """
-        if type(key) == six.binary_type:
-            key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
-
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
+        key, range_end = validate_client_delete_parameters(key, return_previous)
 
         url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
         obj = {
@@ -648,32 +611,7 @@ class Client(object):
         response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
         obj = yield treq.json_content(response)
 
-        if u'error' in obj:
-            error = Error._parse(obj)
-            raise error
-
-        if u'header' in obj:
-            header = Header._parse(obj[u'header'])
-        else:
-            header = None
-
-        responses = []
-        for r in obj.get(u'responses', []):
-            if len(r.keys()) != 1:
-                raise Exception('bogus transaction response (multiple response tags in item): {}'.format(obj))
-
-            first = list(r.keys())[0]
-
-            if first == u'response_put':
-                re = Revision._parse(r[u'response_put'])
-            elif first == u'response_delete_range':
-                re = Deleted._parse(r[u'response_delete_range'])
-            elif first == u'response_range':
-                re = Range._parse(r[u'response_range'])
-            else:
-                raise Exception('response item "{}" bogus or not implemented'.format(first))
-
-            responses.append(re)
+        header, responses = validate_client_submit_response(obj)
 
         if obj.get(u'succeeded', False):
             returnValue(Success(header, responses))
@@ -705,14 +643,7 @@ class Client(object):
             can be used for refreshing or revoking the least etc.
         :rtype: instance of :class:`txaioetcd.Lease`
         """
-        if lease_id is not None and type(lease_id) not in six.integer_types:
-            raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
-
-        if type(time_to_live) not in six.integer_types:
-            raise TypeError('time_to_live must be integer, not {}'.format(type(time_to_live)))
-
-        if time_to_live < 1:
-            raise TypeError('time_to_live must >= 1 second, was {}'.format(time_to_live))
+        validate_client_lease_parameters(time_to_live, lease_id)
 
         obj = {
             u'TTL': time_to_live,
