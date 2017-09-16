@@ -165,7 +165,7 @@ class DeleteRequestAssembler:
             pass
         else:
             raise TypeError(
-                'key must either be bytes or a KeySet object, not {}'.format(type(key)))
+                'key must either be bytes or a KeySet object, not {}'.format(type(self._key)))
 
         if self._return_previous is not None and type(self._return_previous) != bool:
             raise TypeError('return_previous must be bool, not {}'.format(
