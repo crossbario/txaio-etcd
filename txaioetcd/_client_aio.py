@@ -27,34 +27,54 @@
 
 from __future__ import absolute_import
 
+import aiohttp
+
+from txaioetcd import Status, Deleted, Revision, \
+    Failed, Success, Range, Lease
+from txaioetcd import _client_commons as commons
+
+import txaio
+txaio.use_asyncio()
+
 
 __all__ = (
     'Client',
 )
 
 
-class _None(object):
-    pass
-
-
-class Client(object):
+class Client:
     """
     etcd asyncio client that talks to the gRPC HTTP gateway endpoint of etcd v3.
 
     See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
     """
 
-    def __init__(self, loop, url):
-        pass
+    def __init__(self, url, timeout=None):
+        self._url = url
+        self._session = aiohttp.ClientSession()
+        self._timeout = timeout
 
-    def status(self):
-        raise Exception('not implemented')
+    async def _post(self, url, data, timeout):
+        response = await self._session.post(url, json=data, timeout=timeout)
+        return await response.json()
 
-    def set(self, key, value, lease=None, return_previous=None):
-        raise Exception('not implemented')
+    async def status(self, timeout=None):
+        assembler = commons.StatusRequestAssembler(self._url)
 
-    def get(self,
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Status._parse(obj)
+
+    async def set(self, key, value, lease=None, return_previous=None, timeout=None):
+        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
+
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Revision._parse(obj)
+
+    async def get(self,
             key,
+            range_end=None,
             count_only=None,
             keys_only=None,
             limit=None,
@@ -64,17 +84,40 @@ class Client(object):
             revision=None,
             serializable=None,
             sort_order=None,
-            sort_target=None):
+            sort_target=None,
+            timeout=None):
+        assembler = commons.GetRequestAssembler(self._url, key, range_end)
+
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Range._parse(obj)
+
+    async def delete(self, key, return_previous=None, timeout=None):
+        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
+
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Deleted._parse(obj)
+
+    async def watch(self, keys, on_watch, start_revision=None, timeout=None):
         raise Exception('not implemented')
 
-    def delete(self, key, return_previous=None):
-        raise Exception('not implemented')
+    async def submit(self, txn, timeout=None):
+        url = commons.ENDPOINT_SUBMIT.format(self._url).encode()
+        data = txn._marshal()
 
-    def watch(self, keys, on_watch, start_revision=None):
-        raise Exception('not implemented')
+        obj = await self._post(url, data, timeout)
 
-    def submit(self, txn):
-        raise Exception('not implemented')
+        header, responses = commons.validate_client_submit_response(obj)
 
-    def lease(self, time_to_live, lease_id=None):
-        raise Exception('not implemented')
+        if obj.get(u'succeeded', False):
+            return Success(header, responses)
+        else:
+            raise Failed(header, responses)
+
+    async def lease(self, time_to_live, lease_id=None, timeout=None):
+        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
+
+        obj = await self._post(assembler.url, assembler.data, timeout)
+
+        return Lease._parse(self, obj)

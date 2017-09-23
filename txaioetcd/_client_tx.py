@@ -40,10 +40,16 @@ from twisted.web.http_headers import Headers
 
 import treq
 
-from txaioetcd import KeySet, KeyValue, Header, Status, Deleted, \
-    Revision, Error, Failed, Success, Range, Lease
+from txaioetcd import KeySet, KeyValue, Status, Deleted, \
+    Revision, Failed, Success, Range, Lease
 
 from txaioetcd._types import _increment_last_byte
+from txaioetcd import _client_commons as commons
+from txaioetcd._client_commons import (
+    validate_client_submit_response,
+    ENDPOINT_WATCH,
+    ENDPOINT_SUBMIT,
+)
 
 import txaio
 txaio.use_twisted()
@@ -207,6 +213,12 @@ class Client(object):
         self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
 
     @inlineCallbacks
+    def _post(self, url, data, timeout):
+        response = yield treq.post(url, json=data, timeout=(timeout or self._timeout))
+        json_data = yield treq.json_content(response)
+        returnValue(json_data)
+
+    @inlineCallbacks
     def status(self, timeout=None):
         """
         Get etcd status.
@@ -217,14 +229,9 @@ class Client(object):
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
-        url = u'{}/v3alpha/maintenance/status'.format(self._url).encode()
-        obj = {
-            # yes, we must provide an empty dict for the request!
-        }
-        data = json.dumps(obj).encode('utf8')
+        assembler = commons.StatusRequestAssembler(self._url)
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         status = Status._parse(obj)
 
@@ -260,32 +267,9 @@ class Client(object):
         :returns: Revision info
         :rtype: instance of :class:`txaioetcd.Revision`
         """
-        if type(key) != six.binary_type:
-            raise TypeError('key must be bytes, not {}'.format(type(key)))
+        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
 
-        if type(value) != six.binary_type:
-            raise TypeError('value must be bytes, not {}'.format(type(value)))
-
-        if lease is not None and not isinstance(lease, Lease):
-            raise TypeError('lease must be a Lease object, not {}'.format(type(lease)))
-
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
-
-        url = u'{}/v3alpha/kv/put'.format(self._url).encode()
-        obj = {
-            u'key': base64.b64encode(key).decode(),
-            u'value': base64.b64encode(value).decode()
-        }
-        if return_previous:
-            obj[u'prev_kv'] = True
-        if lease and lease.lease_id:
-            obj[u'lease'] = lease.lease_id
-
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         revision = Revision._parse(obj)
 
@@ -373,39 +357,11 @@ class Client(object):
         :param timeout: Request timeout in seconds.
         :type timeout: int or None
         """
-        if type(key) == six.binary_type:
-            if range_end:
-                key = KeySet(key, range_end=range_end)
-            else:
-                key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
+        assembler = commons.GetRequestAssembler(self._url, key, range_end)
 
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
-
-        url = u'{}/v3alpha/kv/range'.format(self._url).encode()
-        obj = {
-            u'key': base64.b64encode(key.key).decode()
-        }
-        if range_end:
-            obj[u'range_end'] = base64.b64encode(range_end).decode()
-
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         result = Range._parse(obj)
-        # count = int(obj.get(u'count', 0))
 
         returnValue(result)
 
@@ -426,53 +382,9 @@ class Client(object):
         :returns: Deletion info
         :rtype: instance of :class:`txaioetcd.Deleted`
         """
-        if type(key) == six.binary_type:
-            key = KeySet(key)
-        elif isinstance(key, KeySet):
-            pass
-        else:
-            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(key)))
+        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
 
-        if return_previous is not None and type(return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(type(return_previous)))
-
-        if key.type == KeySet._SINGLE:
-            range_end = None
-        elif key.type == KeySet._PREFIX:
-            range_end = _increment_last_byte(key.key)
-        elif key.type == KeySet._RANGE:
-            range_end = key.range_end
-        else:
-            raise Exception('logic error')
-
-        url = u'{}/v3alpha/kv/deleterange'.format(self._url).encode()
-        obj = {
-            u'key': base64.b64encode(key.key).decode(),
-        }
-        if range_end:
-            # range_end is the key following the last key to delete
-            # for the range [key, range_end).
-            # If range_end is not given, the range is defined to contain only
-            # the key argument.
-            # If range_end is one bit larger than the given key, then the range
-            # is all keys with the prefix (the given key).
-            # If range_end is '\\0', the range is all keys greater
-            # than or equal to the key argument.
-            #
-            obj[u'range_end'] = base64.b64encode(range_end).decode()
-
-        if return_previous:
-            # If prev_kv is set, etcd gets the previous key-value pairs
-            # before deleting it.
-            # The previous key-value pairs will be returned in the
-            # delete response.
-            #
-            obj[u'prev_kv'] = True
-
-        data = json.dumps(obj).encode('utf8')
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         deleted = Deleted._parse(obj)
 
@@ -512,7 +424,7 @@ class Client(object):
     def _start_watching(self, keys, on_watch, filters, start_revision, return_previous):
         data = []
         headers = dict()
-        url = u'{}/v3alpha/watch'.format(self._url).encode()
+        url = ENDPOINT_WATCH.format(self._url).encode()
 
         # create watches for all key prefixes
         for key in keys:
@@ -641,39 +553,12 @@ class Client(object):
         :rtype: instance of :class:`txaioetcd.Success`,
             :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
-        url = u'{}/v3alpha/kv/txn'.format(self._url).encode()
-        obj = txn._marshal()
-        data = json.dumps(obj).encode('utf8')
+        url = ENDPOINT_SUBMIT.format(self._url).encode()
+        data = txn._marshal()
 
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(url, data, timeout)
 
-        if u'error' in obj:
-            error = Error._parse(obj)
-            raise error
-
-        if u'header' in obj:
-            header = Header._parse(obj[u'header'])
-        else:
-            header = None
-
-        responses = []
-        for r in obj.get(u'responses', []):
-            if len(r.keys()) != 1:
-                raise Exception('bogus transaction response (multiple response tags in item): {}'.format(obj))
-
-            first = list(r.keys())[0]
-
-            if first == u'response_put':
-                re = Revision._parse(r[u'response_put'])
-            elif first == u'response_delete_range':
-                re = Deleted._parse(r[u'response_delete_range'])
-            elif first == u'response_range':
-                re = Range._parse(r[u'response_range'])
-            else:
-                raise Exception('response item "{}" bogus or not implemented'.format(first))
-
-            responses.append(re)
+        header, responses = validate_client_submit_response(obj)
 
         if obj.get(u'succeeded', False):
             returnValue(Success(header, responses))
@@ -705,25 +590,9 @@ class Client(object):
             can be used for refreshing or revoking the least etc.
         :rtype: instance of :class:`txaioetcd.Lease`
         """
-        if lease_id is not None and type(lease_id) not in six.integer_types:
-            raise TypeError('lease_id must be integer, not {}'.format(type(lease_id)))
+        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
 
-        if type(time_to_live) not in six.integer_types:
-            raise TypeError('time_to_live must be integer, not {}'.format(type(time_to_live)))
-
-        if time_to_live < 1:
-            raise TypeError('time_to_live must >= 1 second, was {}'.format(time_to_live))
-
-        obj = {
-            u'TTL': time_to_live,
-            u'ID': lease_id or 0,
-        }
-        data = json.dumps(obj).encode('utf8')
-
-        url = u'{}/v3alpha/lease/grant'.format(self._url).encode()
-
-        response = yield treq.post(url, data, headers=self._REQ_HEADERS, timeout=(timeout or self._timeout))
-        obj = yield treq.json_content(response)
+        obj = yield self._post(assembler.url, assembler.data, timeout)
 
         lease = Lease._parse(self, obj)
 
