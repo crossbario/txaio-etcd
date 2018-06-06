@@ -130,7 +130,7 @@ class _StreamingReceiver(protocol.Protocol):
     def dataReceived(self, data):  # noqa
         for msg in data.split(self.SEP):
             try:
-                obj = json.loads(data.decode('utf8'))
+                obj = json.loads(msg.decode('utf8'))
             except Exception as e:
                 self.log.warn('JSON parsing of etcd streaming response from failed: {}'.format(e))
             else:
