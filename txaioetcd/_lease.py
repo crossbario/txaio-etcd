@@ -35,10 +35,7 @@ import treq
 
 from txaioetcd._types import Header, Expired
 
-
-__all__ = (
-    'Lease'
-)
+__all__ = ('Lease')
 
 
 class Lease(object):
@@ -63,7 +60,8 @@ class Lease(object):
         self.lease_id = lease_id
 
     def __str__(self):
-        return u'Lease(client={}, expired={}, header={}, time_to_live={}, lease_id={})'.format(self._client, self._expired, self.header, self.time_to_live, self.lease_id)
+        return u'Lease(client={}, expired={}, header={}, time_to_live={}, lease_id={})'.format(
+            self._client, self._expired, self.header, self.time_to_live, self.lease_id)
 
     @staticmethod
     def _parse(client, obj):
@@ -125,10 +123,7 @@ class Lease(object):
         if self._expired:
             raise Expired()
 
-        obj = {
-            u'ID': self.lease_id,
-            u'keys': True
-        }
+        obj = {u'ID': self.lease_id, u'keys': True}
         data = json.dumps(obj).encode('utf8')
 
         url = u'{}/v3alpha/kv/lease/timetolive'.format(self._client._url).encode()

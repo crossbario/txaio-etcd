@@ -31,30 +31,9 @@ import base64
 
 import six
 
-
-__all__ = (
-    'KeySet',
-    'KeyValue',
-    'Header',
-    'Status',
-    'Deleted',
-    'Revision',
-    'Comp',
-    'CompValue',
-    'CompVersion',
-    'CompCreated',
-    'CompModified',
-    'Op',
-    'OpGet',
-    'OpSet',
-    'OpDel',
-    'Transaction',
-    'Error',
-    'Failed',
-    'Success',
-    'Expired',
-    'Range'
-)
+__all__ = ('KeySet', 'KeyValue', 'Header', 'Status', 'Deleted', 'Revision', 'Comp', 'CompValue',
+           'CompVersion', 'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'Transaction',
+           'Error', 'Failed', 'Success', 'Expired', 'Range')
 
 
 def _increment_last_byte(byte_string):
@@ -72,7 +51,7 @@ def _increment_last_byte(byte_string):
 def _maybe_text(data):
     try:
         return u'{}'.format(data)
-    except:
+    except:  # noqa
         return binascii.b2a_hex(data).decode()
 
 
@@ -124,9 +103,7 @@ class KeySet(object):
             self.type = KeySet._SINGLE
 
     def _marshal(self):
-        obj = {
-            u'key': base64.b64encode(self.key).decode()
-        }
+        obj = {u'key': base64.b64encode(self.key).decode()}
 
         if self.type == KeySet._SINGLE:
             range_end = None
@@ -143,7 +120,9 @@ class KeySet(object):
         return obj
 
     def __str__(self):
-        return u'KeySet(type={}, key={}, range_end={}, prefix={})'.format(self.type, _maybe_text(self.key), _maybe_text(self.range_end), self.prefix)
+        return u'KeySet(type={}, key={}, range_end={}, prefix={})'.format(self.type, _maybe_text(self.key),
+                                                                          _maybe_text(self.range_end),
+                                                                          self.prefix)
 
 
 class KeyValue(object):
@@ -192,7 +171,9 @@ class KeyValue(object):
         return KeyValue(key, value, version, create_revision, mod_revision)
 
     def __str__(self):
-        return u'KeyValue(key={}, value={}, version={}, create_revision={}, mod_revision={})'.format(_maybe_text(self.key), _maybe_text(self.value), self.version, self.create_revision, self.mod_revision)
+        return u'KeyValue(key={}, value={}, version={}, create_revision={}, mod_revision={})'.format(
+            _maybe_text(self.key), _maybe_text(self.value), self.version, self.create_revision,
+            self.mod_revision)
 
 
 class Header(object):
@@ -212,6 +193,7 @@ class Header(object):
     :vartype member_id: int
 
     """
+
     def __init__(self, raft_term, revision, cluster_id, member_id):
         self.raft_term = raft_term
         self.revision = revision
@@ -234,7 +216,8 @@ class Header(object):
         return Header(raft_term, revision, cluster_id, member_id)
 
     def __str__(self):
-        return u'Header(raft_term={}, revision={}, cluster_id={}, member_id={})'.format(self.raft_term, self.revision, self.cluster_id, self.member_id)
+        return u'Header(raft_term={}, revision={}, cluster_id={}, member_id={})'.format(
+            self.raft_term, self.revision, self.cluster_id, self.member_id)
 
 
 class Status(object):
@@ -259,6 +242,7 @@ class Status(object):
     :ivar raft_index: Current raft index of the responding member.
     :vartype raft_index: int
     """
+
     def __init__(self, version, db_size, leader, header, raft_term, raft_index):
         self.version = version
         self.db_size = db_size
@@ -292,7 +276,8 @@ class Status(object):
         return Status(version, db_size, leader, header, raft_term, raft_index)
 
     def __str__(self):
-        return u'Status(version={}, db_size={}, leader={}, header={}, raft_term={}, raft_index={})'.format(self.version, self.db_size, self.leader, self.header, self.raft_term, self.raft_index)
+        return u'Status(version={}, db_size={}, leader={}, header={}, raft_term={}, raft_index={})'.format(
+            self.version, self.db_size, self.leader, self.header, self.raft_term, self.raft_index)
 
 
 class Deleted(object):
@@ -361,7 +346,8 @@ class Deleted(object):
         return Deleted(deleted, header, previous)
 
     def __str__(self):
-        previous_str = u'[' + u', '.join(str(value) for value in self.previous) + u']' if self.previous else None
+        previous_str = u'[' + u', '.join(str(value)
+                                         for value in self.previous) + u']' if self.previous else None
         return u'Deleted(deleted={}, header={}, previous={})'.format(self.deleted, self.header, previous_str)
 
 
@@ -375,6 +361,7 @@ class Revision(object):
     :ivar previous: Previous KVs (if requested).
     :vartype previous: list or None
     """
+
     def __init__(self, header, previous=None):
         """
 
@@ -463,10 +450,7 @@ class Comp(object):
         self.compare = compare
 
     def _marshal(self):
-        obj = {
-            u'key': base64.b64encode(self.key).decode(),
-            u'result': Comp.OPERATORS[self.compare]
-        }
+        obj = {u'key': base64.b64encode(self.key).decode(), u'result': Comp.OPERATORS[self.compare]}
         return obj
 
     def __str__(self):
@@ -502,7 +486,8 @@ class CompValue(Comp):
         return obj
 
     def __str__(self):
-        return u'CompValue(key={}, compare="{}", value={})'.format(_maybe_text(self.key), self.compare, _maybe_text(self.value))
+        return u'CompValue(key={}, compare="{}", value={})'.format(
+            _maybe_text(self.key), self.compare, _maybe_text(self.value))
 
 
 class CompVersion(Comp):
@@ -534,7 +519,8 @@ class CompVersion(Comp):
         return obj
 
     def __str__(self):
-        return u'CompVersion(key={}, compare="{}", version={})'.format(_maybe_text(self.key), self.compare, self.version)
+        return u'CompVersion(key={}, compare="{}", version={})'.format(
+            _maybe_text(self.key), self.compare, self.version)
 
 
 class CompCreated(Comp):
@@ -566,7 +552,8 @@ class CompCreated(Comp):
         return obj
 
     def __str__(self):
-        return u'CompCreated(key={}, compare="{}", create_revision={})'.format(_maybe_text(self.key), self.compare, self.create_revision)
+        return u'CompCreated(key={}, compare="{}", create_revision={})'.format(
+            _maybe_text(self.key), self.compare, self.create_revision)
 
 
 class CompModified(Comp):
@@ -598,7 +585,8 @@ class CompModified(Comp):
         return obj
 
     def __str__(self):
-        return u'CompModified(key={}, compare="{}", mod_revision={})'.format(_maybe_text(self.key), self.compare, self.mod_revision)
+        return u'CompModified(key={}, compare="{}", mod_revision={})'.format(
+            _maybe_text(self.key), self.compare, self.mod_revision)
 
 
 class Op(object):
@@ -721,9 +709,7 @@ class OpGet(Op):
         self.sort_target = sort_target
 
     def _marshal(self):
-        obj = {
-            u'request_range': self.key._marshal()
-        }
+        obj = {u'request_range': self.key._marshal()}
         if self.count_only:
             obj[u'request_range'][u'count_only'] = True
 
@@ -779,7 +765,6 @@ class OpSet(Op):
 
         :param return_previous:
         :type return_previous: bool or None
-        
         """
         Op.__init__(self)
 
@@ -818,7 +803,8 @@ class OpSet(Op):
         return obj
 
     def __str__(self):
-        return u'OpSet(key={}, value={}, lease={}, return_previous={})'.format(_maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous))
+        return u'OpSet(key={}, value={}, lease={}, return_previous={})'.format(
+            _maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous))
 
 
 class OpDel(Op):
@@ -851,9 +837,7 @@ class OpDel(Op):
         self.return_previous = return_previous
 
     def _marshal(self):
-        obj = {
-            u'request_delete_range': self.key._marshal()
-        }
+        obj = {u'request_delete_range': self.key._marshal()}
 
         if self.return_previous:
             obj[u'request_delete_range'][u'prev_kv'] = True
@@ -887,7 +871,9 @@ class Transaction(object):
             else:
                 for c in compare:
                     if not isinstance(c, Comp):
-                        raise TypeError('compare must be a list of Comp elements, but encountered element of type {}'.format(type(c)))
+                        raise TypeError(
+                            'compare must be a list of Comp elements, but encountered element of type {}'.
+                            format(type(c)))
 
         if success is not None:
             if type(success) != list:
@@ -895,7 +881,9 @@ class Transaction(object):
             else:
                 for op in success:
                     if not isinstance(op, Op):
-                        raise TypeError('success must be a list of Op elements, but encountered element of type {}'.format(type(op)))
+                        raise TypeError(
+                            'success must be a list of Op elements, but encountered element of type {}'.
+                            format(type(op)))
 
         if failure is not None:
             if type(failure) != list:
@@ -903,7 +891,9 @@ class Transaction(object):
             else:
                 for op in failure:
                     if not isinstance(op, Op):
-                        raise TypeError('failure must be a list of Op elements, but encountered element of type {}'.format(type(op)))
+                        raise TypeError(
+                            'failure must be a list of Op elements, but encountered element of type {}'.
+                            format(type(op)))
 
         self.compare = compare
         self.success = success
@@ -956,13 +946,13 @@ class Error(RuntimeError):
 
 
 class Failed(RuntimeError):
-
     def __init__(self, header, responses):
         self.header = header
         self.responses = responses
 
     def __str__(self):
-        responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
+        responses = u'[' + u', '.join(str(x)
+                                      for x in self.responses) + u']' if self.responses is not None else None
         return u'Failed(header={}, responses={})'.format(self.header, responses)
 
 
@@ -982,7 +972,8 @@ class Success(object):
         self.responses = responses
 
     def __str__(self):
-        responses = u'[' + u', '.join(str(x) for x in self.responses) + u']' if self.responses is not None else None
+        responses = u'[' + u', '.join(str(x)
+                                      for x in self.responses) + u']' if self.responses is not None else None
         return u'Success(header={}, responses={})'.format(self.header, responses)
 
 

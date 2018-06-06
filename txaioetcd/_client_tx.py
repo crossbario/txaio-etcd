@@ -24,13 +24,15 @@
 #
 ###############################################################################
 
-
 from __future__ import absolute_import
 
 import json
 import base64
 
 import six
+
+import txaio
+txaio.use_twisted()  # noqa
 
 from twisted.internet.defer import Deferred, succeed, inlineCallbacks, returnValue, CancelledError
 from twisted.internet import protocol
@@ -51,14 +53,7 @@ from txaioetcd._client_commons import (
     ENDPOINT_SUBMIT,
 )
 
-import txaio
-txaio.use_twisted()
-
-import twisted
-
-__all__ = (
-    'Client',
-)
+__all__ = ('Client', )
 
 
 class _BufferedSender(object):
@@ -87,6 +82,7 @@ class _BufferedReceiver(protocol.Protocol):
     """
     HTTP buffered response receiver for use with Twisted Web agent.
     """
+
     def __init__(self, done):
         self._buf = []
         self._done = done
@@ -141,14 +137,15 @@ class _StreamingReceiver(protocol.Protocol):
                         try:
                             self._cb(kv)
                         except Exception as e:
-                            self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(self._cb, e))
+                            self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(
+                                self._cb, e))
 
     #   ODD: Trying to use a parameter instead of *args errors out as soon as the
     #        parameter is accessed.
     #
     #   The check for errors to ignore (Cancelled) is handled further up the chain ..
 
-    def connectionLost(self, *args):
+    def connectionLost(self, *args):  # noqa
         if self._done:
             self._done.callback(args[0])
             self._done = None
@@ -170,9 +167,7 @@ class Client(object):
     Logger object.
     """
 
-    _REQ_HEADERS = {
-        'Content-Type': ['application/json']
-    }
+    _REQ_HEADERS = {'Content-Type': ['application/json']}
     """
     Default request headers for HTTP/POST requests issued to the
     gRPC HTTP gateway endpoint of etcd.
@@ -486,10 +481,7 @@ class Client(object):
         data = b'\n'.join(data)
 
         # HTTP/POST request in one go, but response is streaming ..
-        d = self._agent.request(b'POST',
-                                url,
-                                Headers(headers),
-                                _BufferedSender(data))
+        d = self._agent.request(b'POST', url, Headers(headers), _BufferedSender(data))
 
         def handle_response(response):
             if response.code == 200:

@@ -110,33 +110,40 @@ def export_as_csv(reactor, key_type, value_type, output_path, etcd_address):
 def main():
     parser = argparse.ArgumentParser(description='Utility to dump etcd database to a file.')
 
-    parser.add_argument('-a', '--address',
-                        help='Address(with port number) of the etcd daemon (default: {})'.format(
-                            ADDRESS_ETCD),
-                        default=ADDRESS_ETCD)
+    parser.add_argument(
+        '-a',
+        '--address',
+        help='Address(with port number) of the etcd daemon (default: {})'.format(ADDRESS_ETCD),
+        default=ADDRESS_ETCD)
 
-    parser.add_argument('-k', '--key-type',
-                        help='The key type in the etcd database (default: utf8).',
-                        choices=['utf8', 'binary'],
-                        default='utf8')
+    parser.add_argument(
+        '-k',
+        '--key-type',
+        help='The key type in the etcd database (default: utf8).',
+        choices=['utf8', 'binary'],
+        default='utf8')
 
-    parser.add_argument('-v', '--value-type',
-                        help='The value type in the etcd database (default: json).',
-                        choices=['json', 'binary', 'utf8'],
-                        default='json')
+    parser.add_argument(
+        '-v',
+        '--value-type',
+        help='The value type in the etcd database (default: json).',
+        choices=['json', 'binary', 'utf8'],
+        default='json')
 
-    parser.add_argument('-f', '--output-format',
-                        help='The output format for the database dump (default: json).',
-                        choices=['json', 'csv'],
-                        default='json')
+    parser.add_argument(
+        '-f',
+        '--output-format',
+        help='The output format for the database dump (default: json).',
+        choices=['json', 'csv'],
+        default='json')
 
-    parser.add_argument('-o',
-                        '--output-file',
-                        default=None,
-                        help='Path for the output file. When unset, output goes to stdout.')
+    parser.add_argument(
+        '-o',
+        '--output-file',
+        default=None,
+        help='Path for the output file. When unset, output goes to stdout.')
 
-    parser.add_argument('--version', action='version',
-                        version='txaio-etcd version: {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='txaio-etcd version: {}'.format(__version__))
 
     args = parser.parse_args()
 

@@ -41,15 +41,12 @@ if True:
 else:
     from txaioetcd._client_aio import Client
 
-
 # This is the complete public API of txaioetcd:
 __all__ = (
     '__version__',
-
     'Client',
     'Transaction',
     'Lease',
-
     'KeyValue',
     'KeySet',
     'Header',
@@ -57,23 +54,19 @@ __all__ = (
     'Range',
     'Revision',
     'Deleted',
-
     'Error',
     'Failed',
     'Success',
     'Expired',
-
     'Comp',
     'CompValue',
     'CompVersion',
     'CompCreated',
     'CompModified',
-
     'Op',
     'OpGet',
     'OpSet',
     'OpDel',
-
 )
 
 version = __version__

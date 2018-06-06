@@ -44,6 +44,10 @@ clean:
 	-find . -name "*.pyc" -type f -exec rm -f {} \;
 	-find . -name "*__pycache__" -type d -exec rm -rf {} \;
 
+# auto-format code - WARNING: this my change files, in-place!
+autoformat:
+	yapf -ri --style=yapf.ini txaioetcd
+
 # publish to PyPI
 publish: clean
 	python setup.py sdist bdist_wheel

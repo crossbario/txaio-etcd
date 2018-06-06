@@ -93,8 +93,7 @@ class PutRequestAssembler:
             raise TypeError('lease must be a Lease object, not {}'.format(type(self._lease)))
 
         if self._return_previous is not None and type(self._return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(
-                type(self._return_previous)))
+            raise TypeError('return_previous must be bool, not {}'.format(type(self._return_previous)))
 
 
 class GetRequestAssembler:
@@ -115,9 +114,7 @@ class GetRequestAssembler:
         return self._data
 
     def __assemble(self):
-        self._data = {
-            u'key': base64.b64encode(self._key.key).decode()
-        }
+        self._data = {u'key': base64.b64encode(self._key.key).decode()}
         if self._range_end:
             self._data[u'range_end'] = base64.b64encode(self._range_end).decode()
 
@@ -130,8 +127,7 @@ class GetRequestAssembler:
         elif isinstance(self._key, KeySet):
             pass
         else:
-            raise TypeError(
-                'key must either be bytes or a KeySet object, not {}'.format(type(self._key)))
+            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(self._key)))
 
         if self._key.type == KeySet._SINGLE:
             self._range_end = None
@@ -190,12 +186,10 @@ class DeleteRequestAssembler:
         elif isinstance(self._key, KeySet):
             pass
         else:
-            raise TypeError(
-                'key must either be bytes or a KeySet object, not {}'.format(type(self._key)))
+            raise TypeError('key must either be bytes or a KeySet object, not {}'.format(type(self._key)))
 
         if self._return_previous is not None and type(self._return_previous) != bool:
-            raise TypeError('return_previous must be bool, not {}'.format(
-                type(self._return_previous)))
+            raise TypeError('return_previous must be bool, not {}'.format(type(self._return_previous)))
 
         if self._key.type == KeySet._SINGLE:
             self._range_end = None
@@ -235,8 +229,7 @@ class LeaseRequestAssembler:
             raise TypeError('lease_id must be integer, not {}'.format(type(self._lease_id)))
 
         if type(self._time_to_live) not in six.integer_types:
-            raise TypeError('time_to_live must be integer, not {}'.format(
-                type(self._time_to_live)))
+            raise TypeError('time_to_live must be integer, not {}'.format(type(self._time_to_live)))
 
         if self._time_to_live < 1:
             raise TypeError('time_to_live must >= 1 second, was {}'.format(self._time_to_live))
@@ -266,8 +259,7 @@ def validate_client_submit_response(json):
     responses = []
     for r in json.get(u'responses', []):
         if len(r.keys()) != 1:
-            raise Exception(
-                'bogus transaction response (multiple response tags in item): {}'.format(json))
+            raise Exception('bogus transaction response (multiple response tags in item): {}'.format(json))
 
         first = list(r.keys())[0]
 

@@ -97,14 +97,18 @@ def pretty_print(data, key_type, value_type, dry_output=None):
     if u'binary' in [key_type, value_type]:
         pprint.pprint(data, open(dry_output, 'w') if dry_output else sys.stdout)
     else:
-        json.dump(data, open(dry_output, 'w') if dry_output else sys.stdout, sort_keys=True,
-                  indent=4, ensure_ascii=False)
+        json.dump(
+            data,
+            open(dry_output, 'w') if dry_output else sys.stdout,
+            sort_keys=True,
+            indent=4,
+            ensure_ascii=False)
         print('\n')
 
 
 @inlineCallbacks
-def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_address, dry_run,
-                 dry_output, verbosity):
+def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_address, dry_run, dry_output,
+                 verbosity):
     db_current = yield get_all_keys(reactor, key_type, value_type, etcd_address)
     db_import = yield get_input_content(input_format, input_file, value_type)
     db_diff = yield get_db_diff(db_current, db_import, key_type, value_type)
@@ -136,42 +140,49 @@ def import_to_db(reactor, key_type, value_type, input_format, input_file, etcd_a
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Utility to import external file to etcd database.')
+    parser = argparse.ArgumentParser(description='Utility to import external file to etcd database.')
 
     parser.add_argument('input_file', help='Path for the input file.')
 
-    parser.add_argument('-a', '--address',
-                        help='Address(with port number) of the etcd daemon (default: {})'.format(
-                            ADDRESS_ETCD),
-                        default=ADDRESS_ETCD)
+    parser.add_argument(
+        '-a',
+        '--address',
+        help='Address(with port number) of the etcd daemon (default: {})'.format(ADDRESS_ETCD),
+        default=ADDRESS_ETCD)
 
-    parser.add_argument('-k', '--key-type',
-                        help='The key type in the etcd database (default: utf8).',
-                        choices=['utf8', 'binary'],
-                        default='utf8')
+    parser.add_argument(
+        '-k',
+        '--key-type',
+        help='The key type in the etcd database (default: utf8).',
+        choices=['utf8', 'binary'],
+        default='utf8')
 
-    parser.add_argument('-v', '--value-type',
-                        help='The value type in the etcd database (default: json).',
-                        choices=['json', 'binary', 'utf8'],
-                        default='json')
+    parser.add_argument(
+        '-v',
+        '--value-type',
+        help='The value type in the etcd database (default: json).',
+        choices=['json', 'binary', 'utf8'],
+        default='json')
 
-    parser.add_argument('-f', '--input-format',
-                        help='The input format for the database file (default: json).',
-                        choices=['json', 'csv'],
-                        default='json')
+    parser.add_argument(
+        '-f',
+        '--input-format',
+        help='The input format for the database file (default: json).',
+        choices=['json', 'csv'],
+        default='json')
 
-    parser.add_argument('-d', '--dry-run', action='store_true', default=False,
-                        help='Print the potential changes to import.')
+    parser.add_argument(
+        '-d', '--dry-run', action='store_true', default=False, help='Print the potential changes to import.')
 
-    parser.add_argument('-o', '--dry-output',
-                        help='The file to put the result of dry run (default: stdout).')
+    parser.add_argument('-o', '--dry-output', help='The file to put the result of dry run (default: stdout).')
 
-    parser.add_argument('--verbosity', default='silent', choices=['silent', 'compact', 'verbose'],
-                        help='Set the verbosity level.')
+    parser.add_argument(
+        '--verbosity',
+        default='silent',
+        choices=['silent', 'compact', 'verbose'],
+        help='Set the verbosity level.')
 
-    parser.add_argument('--version', action='version',
-                        version='txaio-etcd version: {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='txaio-etcd version: {}'.format(__version__))
 
     args = parser.parse_args()
 
@@ -180,11 +191,8 @@ def main():
         print('Error: Input file {} does not exist.'.format(input_file))
         exit(1)
 
-    react(
-        import_to_db,
-        (args.key_type, args.value_type, args.input_format, input_file, args.address, args.dry_run,
-         args.dry_output, args.verbosity)
-    )
+    react(import_to_db, (args.key_type, args.value_type, args.input_format, input_file, args.address,
+                         args.dry_run, args.dry_output, args.verbosity))
 
 
 if __name__ == '__main__':

@@ -24,7 +24,6 @@
 #
 ###############################################################################
 
-
 from __future__ import absolute_import
 
 import aiohttp
@@ -36,10 +35,7 @@ from txaioetcd import _client_commons as commons
 import txaio
 txaio.use_asyncio()
 
-
-__all__ = (
-    'Client',
-)
+__all__ = ('Client', )
 
 
 class Client:
@@ -73,19 +69,19 @@ class Client:
         return Revision._parse(obj)
 
     async def get(self,
-            key,
-            range_end=None,
-            count_only=None,
-            keys_only=None,
-            limit=None,
-            max_create_revision=None,
-            min_create_revision=None,
-            min_mod_revision=None,
-            revision=None,
-            serializable=None,
-            sort_order=None,
-            sort_target=None,
-            timeout=None):
+                  key,
+                  range_end=None,
+                  count_only=None,
+                  keys_only=None,
+                  limit=None,
+                  max_create_revision=None,
+                  min_create_revision=None,
+                  min_mod_revision=None,
+                  revision=None,
+                  serializable=None,
+                  sort_order=None,
+                  sort_target=None,
+                  timeout=None):
         """
         Range gets the keys in the range from the key-value store.
 
