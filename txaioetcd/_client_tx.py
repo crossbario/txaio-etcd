@@ -119,45 +119,38 @@ class _StreamingReceiver(protocol.Protocol):
 
     def __init__(self, cb, done=None):
         """
-
         :param cb: Callback to fire upon a JSON chunk being received and parsed.
         :type cb: callable
+
         :param done: Deferred to fire when done.
         :type done: t.i.d.Deferred
         """
-        self._buf = b''
         self._cb = cb
         self._done = done
 
     def dataReceived(self, data):  # noqa
-        self._buf += data
-        while True:
-            i = self._buf.find(self.SEP)
-            if i > 0:
-                data = self._buf[:i]
-                try:
-                    obj = json.loads(data.decode('utf8'))
-                except Exception as e:
-                    self.log.warn('JSON parsing of etcd streaming response from failed: {}'.format(e))
-                else:
-                    for evt in obj[u'result'].get(u'events', []):
-                        if u'kv' in evt:
-                            kv = KeyValue._parse(evt[u'kv'])
-                            try:
-                                self._cb(kv)
-                            except Exception as e:
-                                self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(self._cb, e))
-
-                self._buf = self._buf[i + len(self.SEP):]
+        for msg in data.split(self.SEP):
+            try:
+                obj = json.loads(msg.decode('utf8'))
+            except Exception as e:
+                self.log.warn('JSON parsing of etcd streaming response from failed: {}'.format(e))
             else:
-                break
+                for evt in obj[u'result'].get(u'events', []):
+                    if u'kv' in evt:
+                        kv = KeyValue._parse(evt[u'kv'])
+                        try:
+                            self._cb(kv)
+                        except Exception as e:
+                            self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(self._cb, e))
 
-    def connectionLost(self, reason):  # noqa
-        self.log.debug('etcd watch connection lost: {reason}', reason=reason)
-        # FIXME: test if reason is twisted.web.client.ResponseDone, if not, do an errback
-        # watch connection lost: [Failure instance: Traceback (failure with no frames): <class 'twisted.web._newclient.ResponseFailed'>: [<twisted.python.failure.Failure twisted.internet.error.ConnectionLost: Connection to the other side was lost in a non-clean fashion: Connection lost.>, <twisted.python.failure.Failure twisted.web.http._DataLoss: Chunked decoder in 'CHUNK_LENGTH' state, still expecting more data to get to 'FINISHED' state.>]
+    #   ODD: Trying to use a parameter instead of *args errors out as soon as the
+    #        parameter is accessed.
+    #
+    #   The check for errors to ignore (Cancelled) is handled further up the chain ..
+
+    def connectionLost(self, *args):
         if self._done:
-            self._done.callback(reason)
+            self._done.callback(args[0])
             self._done = None
 
 
@@ -419,15 +412,16 @@ class Client(object):
         """
         d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
 
-        def on_err(err):
-            if err.type == CancelledError:
-                # swallow canceling!
-                pass
-            else:
-                return err
+        #
+        #   ODD: Trying to use a parameter instead of *args errors out as soon as the
+        #        parameter is accessed.
+        #
+        def on_err(*args):
+            if args[0].type != CancelledError:
+                self.log.warn('Watch terminated with "{error}"', error=args[0].type)
+                return args[0]
 
         d.addErrback(on_err)
-
         return d
 
     def _start_watching(self, keys, on_watch, filters, start_revision, return_previous):
