@@ -54,6 +54,7 @@ from txaioetcd._client_commons import (
 import txaio
 txaio.use_twisted()
 
+import twisted
 
 __all__ = (
     'Client',
@@ -404,9 +405,17 @@ class Client(object):
             a watch event.
         :type on_watch: callable
 
+        :param filters: Any filters to apply.
+
         :param start_revision: start_revision is an optional
             revision to watch from (inclusive). No start_revision is "now".
         :type start_revision: int
+
+        :param return_previous: Flag to request returning previous values.
+
+        :returns: A deferred that just fires when watching has started successfully,
+            or which fires with an error in case the watching could not be started.
+        :rtype: twisted.internet.Deferred
         """
         d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
 
