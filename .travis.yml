@@ -24,7 +24,7 @@ install:
   - if [[ $(git diff --name-only $TRAVIS_COMMIT_RANGE) =~ "docker/Dockerfile" ]]; then docker build -t crossbario/txaio-etcd -f ./docker/Dockerfile .; fi
 
 before_script:
-  - docker run -d -p 2379:2379 --name etcd-node quay.io/coreos/etcd:latest
+  - docker run -d -p 2379:2379 -p 2380:2380 -v /usr/share/ca-certificates/:/etc/ssl/certs --name etcd-node quay.io/coreos/etcd:latest /usr/local/bin/etcd --name etcd-node --advertise-client-urls http://0.0.0.0:2379 --listen-client-urls http://0.0.0.0:2379
 
 script:
   - tox -c tox.ini -e $TOX_ENV
