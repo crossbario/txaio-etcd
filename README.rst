@@ -1,8 +1,7 @@
 txaioetcd - etcd for Twisted
 ============================
 
-| |Version| |Docs|
-
+| |Version| |Build Status| |Docs|
 
 `etcd <https://coreos.com/etcd/docs/latest/>`_ is a powerful building block in networked and distributed applications. etcd describes itself as "distributed reliable key-value store for the most critical data of a distributed system".
 
@@ -26,8 +25,9 @@ and the following advanced features
 
 **txaioetcd** also plans to provide abstractions on top of the etcd3 transaction primitive, like for example:
 
+- support running on asyncio
 - global locks and sequences
-- transactional, multi-consumer-producer queues
+- transactional, multi-consumer-producer queues abstraction
 
 
 Examples
@@ -526,6 +526,9 @@ But yes, it is missing completely.
 
 .. |Version| image:: https://img.shields.io/pypi/v/txaioetcd.svg
    :target: https://pypi.python.org/pypi/txaioetcd
+
+.. |Build Status| image:: https://travis-ci.org/crossbario/txaio-etcd.svg?branch=master
+   :target: https://travis-ci.org/crossbario/txaio-etcd
 
 .. |Docs| image:: https://readthedocs.org/projects/txaio-etcd/badge/?version=latest
    :target: https://txaio-etcd.readthedocs.io/en/latest/
