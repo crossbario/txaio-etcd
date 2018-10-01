@@ -36,23 +36,6 @@ after_success:
   # "coverage combine" so the filename is always ".coverage"
   - coverage combine && codecov
 
-
-
-
-
-script:
-  - ./gradlew :autobahn:build connectedCheck
-
-deploy:
-  provider: releases
-  file: autobahn/build/outputs/aar/autobahn-android-release.aar
-  skip_cleanup: true
-  on:
-    tags: true
-  api_key: "$GITHUB_OAUTH_TOKEN"
-
-
-
 matrix:
   fast_finish: true
 
@@ -60,10 +43,6 @@ matrix:
     #
     # General
     #
-    - python: 3.6
-      env:
-      - TOX_ENV=coverage
-
     - python: 3.6
       env:
       - TOX_ENV=flake8
@@ -75,13 +54,6 @@ matrix:
     - python: 3.6
       env:
       - TOX_ENV=yapf
-
-    #
-    # Docs
-    #
-    - python: 3.6
-      env:
-      - TOX_ENV=sphinx
 
     #
     # Docs
