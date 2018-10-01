@@ -34,7 +34,7 @@ from txaioetcd import Client
 @inlineCallbacks
 def main(reactor):
     # create an etcd client
-    etcd = Client(reactor, u'http://localhost:2379')
+    etcd = Client(reactor)
 
     # retrieve etcd cluster status
     status = yield etcd.status()

@@ -5,6 +5,9 @@ default: test
 grep_pb_api:
 	grep 'etcdserverpb.*"' docs/rpc.swagger.json | grep -v "ref" | grep -v "title" | uniq | sort | tr -d '"' | tr -d ": {"
 
+install:
+	pip install --upgrade -e .[dev]
+
 test:
 	python examples/connect.py
 	python examples/crud.py
@@ -12,18 +15,15 @@ test:
 	python examples/lease.py
 	python examples/watch.py
 
-install:
-	pip install --upgrade -e .[dev]
+test_py37:
+	tox -e py37
 
-pep8:
-	pep8 test/*.py txaioetcd/*.py
+test_syntax:
+	tox -e flake8,mypy,yapf
 
-# This will run pep8, pyflakes and can skip lines that end with # noqa
-flake8:
-	#flake8 --max-line-length=119 test/*.py txaioetcd/*.py
-	flake8 --ignore=E501 test/*.py txaioetcd/*.py
+test_docs:
+	tox -e sphinx
 
-# cleanup everything
 clean:
 	-sudo rm -rf ./.etcd
 	-docker rmi crossbario/txaioetcd

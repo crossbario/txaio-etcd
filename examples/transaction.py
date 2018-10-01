@@ -38,7 +38,7 @@ from txaioetcd import Client, KeySet, Transaction, \
 @inlineCallbacks
 def main(reactor):
 
-    etcd = Client(reactor, u'http://localhost:2379')
+    etcd = Client(reactor)
 
     #
     # Example 1

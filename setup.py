@@ -24,20 +24,45 @@
 #
 ###############################################################################
 
-from setuptools import setup
+import os
+from setuptools import setup, find_packages
 
 
+# read package version
 with open('txaioetcd/_version.py') as f:
     exec(f.read())  # defines __version__
 
+# read package description
 with open('README.rst') as f:
     docstr = f.read()
 
-extras_require_dev = [
-    'sphinx',
-    'sphinx_rtd_theme',
-    'twine',                            # Apache 2.0
-]
+# we read requirements from requirements*.txt files down below
+install_requires = []
+extras_require = {
+    'dev': []
+}
+
+# minimum, open-ended requirements
+reqs = 'requirements.txt'
+
+with open(reqs) as f:
+    for line in f.read().splitlines():
+        line = line.strip()
+        if not line.startswith('#'):
+            parts = line.strip().split(';')
+            if len(parts) > 1:
+                parts[0] = parts[0].strip()
+                parts[1] = ':{}'.format(parts[1].strip())
+                if parts[1] not in extras_require:
+                    extras_require[parts[1]] = []
+                extras_require[parts[1]].append(parts[0])
+            else:
+                install_requires.append(parts)
+
+with open('requirements-dev.txt') as f:
+    for line in f.read().splitlines():
+        extras_require['dev'].append(line.strip())
+
 
 setup(
     name='txaioetcd',
@@ -49,17 +74,9 @@ setup(
     author_email='autobahnws@googlegroups.com',
     url='https://github.com/crossbario/txaio-etcd',
     platforms=('Any', ),
-    install_requires=[
-        'six>=1.10.0',                  # MIT
-        'twisted>=16.6.0',              # MIT
-        'treq>=16.12.0',                # MIT
-        'txaio>=2.6.1',                 # MIT
-        'aiohttp>=2.2.5',               # Apache 2.0
-    ],
-    extras_require={
-        'dev': extras_require_dev,
-    },
-    packages=['txaioetcd', 'txaioetcd.cli'],
+    install_requires=install_requires,
+    extras_require=extras_require,
+    packages=find_packages(),
 
     # this flag will make files from MANIFEST.in go into _source_ distributions only
     include_package_data=True,
@@ -84,10 +101,10 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries",

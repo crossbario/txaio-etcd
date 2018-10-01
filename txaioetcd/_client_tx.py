@@ -26,6 +26,7 @@
 
 from __future__ import absolute_import
 
+import os
 import json
 import base64
 
@@ -173,7 +174,7 @@ class Client(object):
     gRPC HTTP gateway endpoint of etcd.
     """
 
-    def __init__(self, reactor, url, pool=None, timeout=None, connect_timeout=None):
+    def __init__(self, reactor, url=None, pool=None, timeout=None, connect_timeout=None):
         """
 
         :param rector: Twisted reactor to use.
@@ -193,9 +194,9 @@ class Client(object):
             opening a new HTTP connection to etcd.
         :type connect_timeout: float or None
         """
-        if type(url) != six.text_type:
+        if url is not None and type(url) != six.text_type:
             raise TypeError('url must be of type unicode, was {}'.format(type(url)))
-        self._url = url
+        self._url = url or os.environ.get(u'ETCD_URL', u'http://localhost:2379')
         self._timeout = timeout
         self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
         self._pool._factory.noisy = False

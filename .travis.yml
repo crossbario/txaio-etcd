@@ -1,0 +1,130 @@
+sudo: false
+dist: trusty
+
+language: python
+
+python:
+  - "3.6"
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
+before_install:
+  - export PATH=$PATH:$HOME/.local/bin
+
+  # build ID (eg, "20180513-28114a1")
+  - export TXAIOETCD_BUILD_ID="$(date --utc "+%Y%m%d")-$(git rev-parse --short ${TRAVIS_COMMIT})"
+
+install:
+  - pip install tox codecov
+  - if [[ $(git diff --name-only $TRAVIS_COMMIT_RANGE) =~ "docker/Dockerfile" ]]; then docker build -t crossbario/txaio-etcd -f ./docker/Dockerfile .; fi
+
+before_script:
+  - docker run -d -p 2379:2379 --name etcd-node quay.io/coreos/etcd:latest
+
+script:
+  - tox -c tox.ini -e $TOX_ENV
+  #- examples/run.sh
+  #- docker run --rm -it --link etcd --env ETCD_URL=http://etcd-node:2379 crossbario/txaio-etcd"
+
+after_success:
+  # since we use --parallel-mode to coverage inside Tox we use
+  # "coverage combine" so the filename is always ".coverage"
+  - coverage combine && codecov
+
+
+
+
+
+script:
+  - ./gradlew :autobahn:build connectedCheck
+
+deploy:
+  provider: releases
+  file: autobahn/build/outputs/aar/autobahn-android-release.aar
+  skip_cleanup: true
+  on:
+    tags: true
+  api_key: "$GITHUB_OAUTH_TOKEN"
+
+
+
+matrix:
+  fast_finish: true
+
+  include:
+    #
+    # General
+    #
+    - python: 3.6
+      env:
+      - TOX_ENV=coverage
+
+    - python: 3.6
+      env:
+      - TOX_ENV=flake8
+
+    - python: 3.6
+      env:
+      - TOX_ENV=mypy
+
+    - python: 3.6
+      env:
+      - TOX_ENV=yapf
+
+    #
+    # Docs
+    #
+    - python: 3.6
+      env:
+      - TOX_ENV=sphinx
+
+    #
+    # Docs
+    #
+    - python: 3.6
+      env:
+      - TOX_ENV=sphinx
+
+    #
+    # CPython 3.7
+    #
+    - python: 3.7
+      dist: xenial
+      sudo: required
+      env:
+      - TOX_ENV=py37
+
+    #
+    # CPython 3.6 - 2.7
+    #
+    - python: 3.6
+      env:
+      - TOX_ENV=py36
+
+    - python: 3.5
+      env:
+      - TOX_ENV=py35
+
+    - python: 3.4
+      env:
+      - TOX_ENV=py34
+
+    - python: 2.7
+      env:
+      - TOX_ENV=py27
+
+    #
+    # PyPy
+    #
+    - python: pypy3
+      env:
+      - TOX_ENV=pypy3
+
+    - python: pypy
+      env:
+      - TOX_ENV=pypy
