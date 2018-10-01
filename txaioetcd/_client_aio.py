@@ -26,161 +26,173 @@
 
 from __future__ import absolute_import
 
-import aiohttp
+import os
+
+import six
 
 from txaioetcd import Status, Deleted, Revision, \
     Failed, Success, Range, Lease
 from txaioetcd import _client_commons as commons
 
-import txaio
-txaio.use_asyncio()
-
 __all__ = ('Client', )
 
+try:
+    # Python >=3.4.2 only
+    import aiohttp
 
-class Client:
-    """
-    etcd asyncio client that talks to the gRPC HTTP gateway endpoint of etcd v3.
+    import txaio
+    txaio.use_asyncio()
 
-    See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
-    """
+except:
+    Client = None
 
-    def __init__(self, url, timeout=None):
-        self._url = url
-        self._session = aiohttp.ClientSession()
-        self._timeout = timeout
+else:
 
-    async def _post(self, url, data, timeout):
-        response = await self._session.post(url, json=data, timeout=timeout)
-        return await response.json()
-
-    async def status(self, timeout=None):
-        assembler = commons.StatusRequestAssembler(self._url)
-
-        obj = await self._post(assembler.url, assembler.data, timeout)
-
-        return Status._parse(obj)
-
-    async def set(self, key, value, lease=None, return_previous=None, timeout=None):
-        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
-
-        obj = await self._post(assembler.url, assembler.data, timeout)
-
-        return Revision._parse(obj)
-
-    async def get(self,
-                  key,
-                  range_end=None,
-                  count_only=None,
-                  keys_only=None,
-                  limit=None,
-                  max_create_revision=None,
-                  min_create_revision=None,
-                  min_mod_revision=None,
-                  revision=None,
-                  serializable=None,
-                  sort_order=None,
-                  sort_target=None,
-                  timeout=None):
+    class Client:
         """
-        Range gets the keys in the range from the key-value store.
+        etcd asyncio client that talks to the gRPC HTTP gateway endpoint of etcd v3.
 
-        :param key: key is the first key for the range. If range_end is not given,
-            the request only looks up key.
-        :type key: bytes
-
-        :param range_end: range_end is the upper bound on the requested range
-            [key, range_end). If range_end is ``\\0``, the range is all keys ``\u003e=`` key.
-            If the range_end is one bit larger than the given key, then the range requests
-            get the all keys with the prefix (the given key). If both key and range_end
-            are ``\\0``, then range requests returns all keys.
-        :type range_end: bytes
-
-        :param prefix: If set, and no range_end is given, compute range_end from key prefix.
-        :type prefix: bool
-
-        :param count_only: count_only when set returns only the count of the keys in the range.
-        :type count_only: bool
-
-        :param keys_only: keys_only when set returns only the keys and not the values.
-        :type keys_only: bool
-
-        :param limit: limit is a limit on the number of keys returned for the request.
-        :type limit: int
-
-        :param max_create_revision: max_create_revision is the upper bound for returned
-            key create revisions; all keys with greater create revisions will be filtered away.
-        :type max_create_revision: int
-
-        :param max_mod_revision: max_mod_revision is the upper bound for returned key
-            mod revisions; all keys with greater mod revisions will be filtered away.
-        :type max_mod_revision: int
-
-        :param min_create_revision: min_create_revision is the lower bound for returned
-            key create revisions; all keys with lesser create trevisions will be filtered away.
-        :type min_create_revision: int
-
-        :param min_mod_revision: min_mod_revision is the lower bound for returned key
-            mod revisions; all keys with lesser mod revisions will be filtered away.
-        :type min_min_revision: int
-
-        :param revision: revision is the point-in-time of the key-value store to use for the
-            range. If revision is less or equal to zero, the range is over the newest
-            key-value store. If the revision has been compacted, ErrCompacted is returned as
-            a response.
-        :type revision: int
-
-        :param serializable: serializable sets the range request to use serializable
-            member-local reads. Range requests are linearizable by default; linearizable
-            requests have higher latency and lower throughput than serializable requests
-            but reflect the current consensus of the cluster. For better performance, in
-            exchange for possible stale reads, a serializable range request is served
-            locally without needing to reach consensus with other nodes in the cluster.
-        :type serializable: bool
-
-        :param sort_order: Sort order for returned KVs,
-            one of :class:`txaioetcd.OpGet.SORT_ORDERS`.
-        :type sort_order: str
-
-        :param sort_target: Sort target for sorting returned KVs,
-            one of :class:`txaioetcd.OpGet.SORT_TARGETS`.
-        :type sort_taget: str or None
-
-        :param timeout: Request timeout in seconds.
-        :type timeout: int or None
+        See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
         """
-        assembler = commons.GetRequestAssembler(self._url, key, range_end)
 
-        obj = await self._post(assembler.url, assembler.data, timeout)
+        def __init__(self, url=None, timeout=None):
+            if url is not None and type(url) != six.text_type:
+                raise TypeError('url must be of type unicode, was {}'.format(type(url)))
+            self._url = url or os.environ.get(u'ETCD_URL', u'http://localhost:2379')
+            self._session = aiohttp.ClientSession()
+            self._timeout = timeout
 
-        return Range._parse(obj)
+        async def _post(self, url, data, timeout):
+            response = await self._session.post(url, json=data, timeout=timeout)
+            return await response.json()
 
-    async def delete(self, key, return_previous=None, timeout=None):
-        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
+        async def status(self, timeout=None):
+            assembler = commons.StatusRequestAssembler(self._url)
 
-        obj = await self._post(assembler.url, assembler.data, timeout)
+            obj = await self._post(assembler.url, assembler.data, timeout)
 
-        return Deleted._parse(obj)
+            return Status._parse(obj)
 
-    async def watch(self, keys, on_watch, start_revision=None, timeout=None):
-        raise Exception('not implemented')
+        async def set(self, key, value, lease=None, return_previous=None, timeout=None):
+            assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
 
-    async def submit(self, txn, timeout=None):
-        url = commons.ENDPOINT_SUBMIT.format(self._url).encode()
-        data = txn._marshal()
+            obj = await self._post(assembler.url, assembler.data, timeout)
 
-        obj = await self._post(url, data, timeout)
+            return Revision._parse(obj)
 
-        header, responses = commons.validate_client_submit_response(obj)
+        async def get(self,
+                    key,
+                    range_end=None,
+                    count_only=None,
+                    keys_only=None,
+                    limit=None,
+                    max_create_revision=None,
+                    min_create_revision=None,
+                    min_mod_revision=None,
+                    revision=None,
+                    serializable=None,
+                    sort_order=None,
+                    sort_target=None,
+                    timeout=None):
+            """
+            Range gets the keys in the range from the key-value store.
 
-        if obj.get(u'succeeded', False):
-            return Success(header, responses)
-        else:
-            raise Failed(header, responses)
+            :param key: key is the first key for the range. If range_end is not given,
+                the request only looks up key.
+            :type key: bytes
 
-    async def lease(self, time_to_live, lease_id=None, timeout=None):
-        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
+            :param range_end: range_end is the upper bound on the requested range
+                [key, range_end). If range_end is ``\\0``, the range is all keys ``\u003e=`` key.
+                If the range_end is one bit larger than the given key, then the range requests
+                get the all keys with the prefix (the given key). If both key and range_end
+                are ``\\0``, then range requests returns all keys.
+            :type range_end: bytes
 
-        obj = await self._post(assembler.url, assembler.data, timeout)
+            :param prefix: If set, and no range_end is given, compute range_end from key prefix.
+            :type prefix: bool
 
-        return Lease._parse(self, obj)
+            :param count_only: count_only when set returns only the count of the keys in the range.
+            :type count_only: bool
+
+            :param keys_only: keys_only when set returns only the keys and not the values.
+            :type keys_only: bool
+
+            :param limit: limit is a limit on the number of keys returned for the request.
+            :type limit: int
+
+            :param max_create_revision: max_create_revision is the upper bound for returned
+                key create revisions; all keys with greater create revisions will be filtered away.
+            :type max_create_revision: int
+
+            :param max_mod_revision: max_mod_revision is the upper bound for returned key
+                mod revisions; all keys with greater mod revisions will be filtered away.
+            :type max_mod_revision: int
+
+            :param min_create_revision: min_create_revision is the lower bound for returned
+                key create revisions; all keys with lesser create trevisions will be filtered away.
+            :type min_create_revision: int
+
+            :param min_mod_revision: min_mod_revision is the lower bound for returned key
+                mod revisions; all keys with lesser mod revisions will be filtered away.
+            :type min_min_revision: int
+
+            :param revision: revision is the point-in-time of the key-value store to use for the
+                range. If revision is less or equal to zero, the range is over the newest
+                key-value store. If the revision has been compacted, ErrCompacted is returned as
+                a response.
+            :type revision: int
+
+            :param serializable: serializable sets the range request to use serializable
+                member-local reads. Range requests are linearizable by default; linearizable
+                requests have higher latency and lower throughput than serializable requests
+                but reflect the current consensus of the cluster. For better performance, in
+                exchange for possible stale reads, a serializable range request is served
+                locally without needing to reach consensus with other nodes in the cluster.
+            :type serializable: bool
+
+            :param sort_order: Sort order for returned KVs,
+                one of :class:`txaioetcd.OpGet.SORT_ORDERS`.
+            :type sort_order: str
+
+            :param sort_target: Sort target for sorting returned KVs,
+                one of :class:`txaioetcd.OpGet.SORT_TARGETS`.
+            :type sort_taget: str or None
+
+            :param timeout: Request timeout in seconds.
+            :type timeout: int or None
+            """
+            assembler = commons.GetRequestAssembler(self._url, key, range_end)
+
+            obj = await self._post(assembler.url, assembler.data, timeout)
+
+            return Range._parse(obj)
+
+        async def delete(self, key, return_previous=None, timeout=None):
+            assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
+
+            obj = await self._post(assembler.url, assembler.data, timeout)
+
+            return Deleted._parse(obj)
+
+        async def watch(self, keys, on_watch, start_revision=None, timeout=None):
+            raise Exception('not implemented')
+
+        async def submit(self, txn, timeout=None):
+            url = commons.ENDPOINT_SUBMIT.format(self._url).encode()
+            data = txn._marshal()
+
+            obj = await self._post(url, data, timeout)
+
+            header, responses = commons.validate_client_submit_response(obj)
+
+            if obj.get(u'succeeded', False):
+                return Success(header, responses)
+            else:
+                raise Failed(header, responses)
+
+        async def lease(self, time_to_live, lease_id=None, timeout=None):
+            assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
+
+            obj = await self._post(assembler.url, assembler.data, timeout)
+
+            return Lease._parse(self, obj)

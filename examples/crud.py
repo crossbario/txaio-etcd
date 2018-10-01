@@ -35,7 +35,7 @@ from txaioetcd import Client, KeySet
 
 @inlineCallbacks
 def main(reactor):
-    etcd = Client(reactor, u'http://localhost:2379')
+    etcd = Client(reactor)
 
     # set key-value
     etcd.set(b'foo', os.urandom(8))

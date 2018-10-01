@@ -34,7 +34,7 @@ from txaioetcd import Client, Expired
 @inlineCallbacks
 def main(reactor):
 
-    etcd = Client(reactor, u'http://localhost:2379')
+    etcd = Client(reactor)
 
     status = yield etcd.status()
     print(status)
