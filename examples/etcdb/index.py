@@ -52,7 +52,8 @@ async def main(reactor):
         for user in random.sample(users, 5):
 
             # DELETE
-            #tab_users.__delitem__((txn, user.oid))
+            # tab_users.__delitem__((txn, user.oid))
+            # del tab_users[txn, user.oid]
             await tab_users.delete((txn, user.oid))
 
             print('user object deleted for oid={}'.format(user.oid))
@@ -62,10 +63,7 @@ async def main(reactor):
         for user in users:
             _user = await tab_users[txn, user.oid]
             if user.oid in removed:
-                if _user:
-                    print('ERROR, record for oid={} present'.format(user.oid))
-                else:
-                    print('ok, record for oid={} present'.format(user.oid))
+                assert _user is None
 
                 user_oid = await idx_users_by_name[txn, user.name]
                 assert user_oid is None
@@ -73,16 +71,16 @@ async def main(reactor):
                 user_oid = await idx_users_by_email[txn, user.email]
                 assert user_oid is None
             else:
-                if not _user:
-                    print('ERROR, record for oid={} absent'.format(user.oid))
-                else:
-                    print('ok, record for oid={} absent'.format(user.oid))
+                assert _user
+                assert _user == user
 
                 user_oid = await idx_users_by_name[txn, user.name]
                 assert user_oid == user.oid
 
                 user_oid = await idx_users_by_email[txn, user.email]
                 assert user_oid == user.oid
+
+            print('database structure for user oid={} verified successfully'.format(user.oid))
 
     print('etcd stats', db.stats())
 

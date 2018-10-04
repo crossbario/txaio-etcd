@@ -37,7 +37,9 @@ async def main(reactor):
         for oid in random.sample(user_oids, 5):
 
             # DELETE
-            tab_users.__delitem__((txn, oid))
+            # tab_users.__delitem__((txn, oid))
+            # await tab_users.delete((txn, oid))
+            del tab_users[txn, oid]
 
             print('user object deleted for oid={}'.format(oid))
 
@@ -46,7 +48,7 @@ async def main(reactor):
             # here we (directly/synchronously) get the value for a key as a native Python object
             user = await tab_users[txn, oid]
             if user:
-                print('user object loaded: name={}, oid={}\n{}'.format(user.name, user.oid, user))
+                print('user object loaded: name={}, oid={}'.format(user.name, user.oid))
             else:
                 print('no user object for oid={}'.format(oid))
 
