@@ -171,7 +171,6 @@ class DbTransaction(object):
                 return result.kvs[0].value
 
     def put(self, key, data, overwrite=True):
-        print('PUT', key)
         assert (self._txn is not None)
 
         self._buffer[key] = (DbTransaction.PUT, data)
@@ -181,7 +180,6 @@ class DbTransaction(object):
         return True
 
     def delete(self, key):
-        print('DEL', key)
         assert (self._txn is not None)
 
         self._buffer[key] = (DbTransaction.DEL, None)

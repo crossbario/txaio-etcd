@@ -28,6 +28,7 @@ import uuid
 import datetime
 import random
 from typing import Optional, List, Dict
+from pprint import pformat
 
 import six
 
@@ -144,6 +145,8 @@ class User(object):
 
 async def main(reactor):
 
+    schema_users = '3bb5faf5-8394-496c-add5-265041f299c6'
+
     tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
     idx_users_by_name = pmap.MapStringUuid(2)
@@ -155,29 +158,25 @@ async def main(reactor):
     etcd = txaioetcd.Client(reactor)
     db = txaioetcd.Database(etcd)
 
-    print('etcd stats', etcd.stats())
-
     status = await etcd.status()
     revision = status.header.revision
     print('connected to etcd: revision', revision)
+    print('etcd stats', etcd.stats())
 
     async with db.begin(write=True) as txn:
         for i in range(10):
             name = 'user{}'.format(i)
             key = await idx_users_by_name[txn, name]
             if key:
+                assert key, 'database index corrupt: data record for index entry missing'
                 user = await tab_users[txn, key]
-                if not user:
-                    print('database index corrupt: data record for index entry missing')
-                else:
-                    print('user object already exists for name {}: {}'.format(name, key))
+                print('user object already exists: name={}, oid={}'.format(name, user.oid))
             else:
                 user = User.create_test_user()
                 user.name = name
                 user.oid = uuid.uuid4()
                 tab_users[txn, user.oid] = user
-                #idx_users_by_name[txn, user.name] = user.oid
-                print('new user object stored for name {}: {}'.format(name, user.oid))
+                print('new user object stored: name={}, oid={}'.format(name, user.oid))
 
     print('etcd stats', etcd.stats())
 
@@ -192,12 +191,11 @@ async def main(reactor):
                 else:
                     user = await tab_users[txn, key]
                     if user:
-                        print('user object loaded for name={}, key={}'.format(name, key))
+                        print('user object loaded: name={}, oid={}'.format(name, user.oid))
                     else:
                         print('corrupt index')
 
     await print_loop()
-
     print('etcd stats', etcd.stats())
 
     async with db.begin(write=True) as txn:
@@ -210,9 +208,9 @@ async def main(reactor):
                 print('no user object for key {}'.format(key))
             else:
                 await tab_users.__delitem__((txn, key))
-                print('user object deleted for key {}'.format(key))
+                print('user object deleted for name={}, key={}'.format(name, key))
 
-    #await print_loop()
+    await print_loop()
     print('etcd stats', etcd.stats())
 
 

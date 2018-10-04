@@ -7,6 +7,7 @@ echo ""
 
 python connect.py
 python crud.py
+python etcdb.py
 python transaction.py
 python lease.py
 python watch.py
