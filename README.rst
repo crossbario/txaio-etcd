@@ -3,31 +3,32 @@ etcd for Twisted
 
 | |Version| |Build Status| |Docs|
 
-**txaioetcd** is an object-relational remote persistant map layer based on etcd.
+**txaioetcd** is an *object-relational remote persistant map layer* backed by etcd.
 
-It also provides a low-level asynchronous API for Twisted applications.
+It also provides a low-level asynchronous API for general Twisted etcd applications, bypassing
+the object-relational layer of the library.
 
 
 Installation
 ------------
 
-**etcd version 3.1 or higher** is required. etcd 2 will not work. etcd 3.0 also isn't enough - at least watching keys doesn't work over the gRPC HTTP gateway yet.
-
-The implementation is pure Python code compatible with both **Python 2 and 3**, and runs perfect on **PyPy**.
-
-The library currently requires **Twisted**, though the API was designed to allow adding asyncio support later (PRs are welcome!) with no breakage.
-
-But other than the underlying network library, there are only small pure Python dependencies.
-
-To install txaioetcd
+The implementation is pure Python code compatible with both **Python 2 and 3**
+and runs perfect on **PyPy**.
+On the server-side, **etcd version 3.1 or higher** is required. To install txaioetcd
 
 .. code-block:: sh
 
     pip install txaioetcd
 
+.. note::
 
-Introduction
-------------
+    The library currently requires **Twisted**, though the API was designed to allow adding asyncio support later (PRs are welcome!) with no breakage.
+    But other than the underlying network library, there are only small pure Python dependencies.
+    etcd 2 will not work. etcd 3.0 also isn't enough - at least watching keys doesn't work over the gRPC HTTP gateway yet.
+
+
+Getting Started
+---------------
 
 To start with **txaioetcd** using the high-level, remote persistent map API,
 define at least one class for data to be persisted,
@@ -53,17 +54,63 @@ Then define a table for a slot to be used with key-value stores:
 .. code-block:: python
 
     # users table schema (a table with UUID keys and CBOR values holding User objects)
-    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
-Open a connection to etcd as a backing store:
+Above will define a table slot (with index 1) that has UUIDs for keys, and CBOR serialized
+objects of User class for values.
+
+.. note::
+
+    The User class does not appear literally, but only the "marshal" and "unmarshal"
+    parameters to the persistant map type specifies the object interface of the user class
+    to the persistant map library. The application developers needs to provide implementations of
+    the respective application class marshal/unmarshal interface.
+
+The available types for keys and values of persistant maps include:
+
+* String (UTF8)
+* Binary
+* OID (uint64)
+* UUID (uint128)
+* JSON
+* CBOR
+* Pickle (Python)
+* Flatbuffers
+
+For example, the following is another valid slot definition:
 
 .. code-block:: python
 
-    db = Database(Client(reactor))
+    # users table schema (a table with OID keys and Python Pickle values holding User objects)
+    tab_users = MapOidPickle(2, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+
+Above will define a table slot (with index 2) that has OIDs for keys, and Python Pickle serialized
+objects of User class for values.
+
+Connecting
+..........
+
+First open a connection to etcd as a backing store:
+
+.. code-block:: python
+
+    from txaioetcd import Client, Database
+
+    etcd = Client(reactor)
+    db = Database(etcd)
+
+To check a database connection:
+
+.. code-block:: python
+
     revision = await db.status()
     print('connected to etcd: revision', revision)
 
-Create a native Python object from our class above and store it in the table, that is remotely in etcd:
+
+Storing and loading objects
+...........................
+
+Now create a native Python object from the class above and store it in the table, that is remotely in etcd:
 
 .. code-block:: python
 
@@ -71,21 +118,59 @@ Create a native Python object from our class above and store it in the table, th
     user.name = 'foobar'
     user.oid = uuid.uuid4()
 
+    # create an async writable transaction to modify etcd data
     async with db.begin(write=True) as txn:
         tab_users[txn, user.oid] = user
 
+    # data is committed when transaction leaves scope .. here
     print('user stored: {}'.format(user))
 
-Load a native Python object from the table, taht is remotely from etcd:
+Load a native Python object from the table, that is remotely from etcd:
 
 .. code-block:: python
 
     user = None
 
+    # create an async read-only transaction when only accessing data in etcd
     async with db.begin() as txn:
         user = tab_users[txn, user.oid]
 
     print('user loaded: {}'.format(user))
+
+
+Putting it together
+...................
+
+To put all the pieces together and run the code, you might use the following boilerplate
+
+.. code-block:: python
+
+    import txaio
+    txaio.use_twisted()
+
+    from twisted.internet.task import react
+    from twisted.internet.defer import ensureDeferred
+
+    from txaioetcd import Client, Database
+
+    async def main(reactor):
+        etcd = Client(reactor)
+        db = Database()
+        revision = await db.status()
+        print('connected to etcd: revision', revision)
+
+        # INSERT YOUR CODE HERE
+
+    def _main():
+        return react(
+            lambda reactor: ensureDeferred(
+                main(reactor)
+            )
+        )
+
+    if __name__ == '__main__':
+        txaio.start_logging(level='info')
+        _main()
 
 
 Examples
