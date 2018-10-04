@@ -38,6 +38,7 @@ from twisted.internet.task import react
 from twisted.internet.defer import ensureDeferred, inlineCallbacks
 
 import txaioetcd
+from txaioetcd import _pmap as pmap
 import zlmdb
 
 
@@ -141,65 +142,78 @@ class User(object):
         return user
 
 
-class UsersSchema(zlmdb.Schema):
-
-    users: zlmdb.MapUuidCbor
-    idx_users_by_name: zlmdb.MapStringUuid
-    idx_users_by_email: zlmdb.MapStringUuid
-
-    def __init__(self):
-        super(UsersSchema, self).__init__()
-
-        self.users = zlmdb.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
-
-        self.idx_users_by_name = zlmdb.MapStringUuid(2)
-        self.users.attach_index('idx1', lambda user: user.name, self.idx_users_by_name)
-
-        self.idx_users_by_email = zlmdb.MapStringUuid(3)
-        self.users.attach_index('idx2', lambda user: user.email, self.idx_users_by_email)
-
-
 async def main(reactor):
 
+    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+
+    idx_users_by_name = pmap.MapStringUuid(2)
+    tab_users.attach_index('idx1', lambda user: user.name, idx_users_by_name)
+
+    idx_users_by_email = pmap.MapStringUuid(3)
+    tab_users.attach_index('idx2', lambda user: user.email, idx_users_by_email)
+
     etcd = txaioetcd.Client(reactor)
+    db = txaioetcd.Database(etcd)
+
+    print('etcd stats', etcd.stats())
+
     status = await etcd.status()
     revision = status.header.revision
     print('connected to etcd: revision', revision)
 
-    schema = UsersSchema()
-    users = schema.users
-    idx1 = schema.idx_users_by_name
-    print('using schema {}: users'.format(schema, users))
-
-    db = txaioetcd.Database(etcd)
-
     async with db.begin(write=True) as txn:
         for i in range(10):
             name = 'user{}'.format(i)
-            key = await idx1[txn, name]
+            key = await idx_users_by_name[txn, name]
             if key:
-                user = await users[txn, key]
+                user = await tab_users[txn, key]
                 if not user:
-                    raise Exception('database index corrupt (data record for index entry missing)')
-                print('user object already exists for name {}: {}'.format(name, key))
+                    print('database index corrupt: data record for index entry missing')
+                else:
+                    print('user object already exists for name {}: {}'.format(name, key))
             else:
                 user = User.create_test_user()
                 user.name = name
                 user.oid = uuid.uuid4()
-                users[txn, user.oid] = user
+                tab_users[txn, user.oid] = user
+                #idx_users_by_name[txn, user.name] = user.oid
                 print('new user object stored for name {}: {}'.format(name, user.oid))
+
+    print('etcd stats', etcd.stats())
+
+    async def print_loop():
+        async with db.begin(write=True) as txn:
+            for k in range(30):
+                i = random.randint(0, 9)
+                name = 'user{}'.format(i)
+                key = await idx_users_by_name[txn, name]
+                if not key:
+                    print('no user object for name {}'.format(name))
+                else:
+                    user = await tab_users[txn, key]
+                    if user:
+                        print('user object loaded for name={}, key={}'.format(name, key))
+                    else:
+                        print('corrupt index')
+
+    await print_loop()
+
+    print('etcd stats', etcd.stats())
 
     async with db.begin(write=True) as txn:
         for k in range(5):
             i = random.randint(0, 9)
             name = 'user{}'.format(i)
             try:
-                key = await idx1[txn, name]
+                key = await idx_users_by_name[txn, name]
             except IndexError:
                 print('no user object for key {}'.format(key))
             else:
-                del users[txn, key]
+                await tab_users.__delitem__((txn, key))
                 print('user object deleted for key {}'.format(key))
+
+    #await print_loop()
+    print('etcd stats', etcd.stats())
 
 
 # a wrapper that calls ensureDeferred

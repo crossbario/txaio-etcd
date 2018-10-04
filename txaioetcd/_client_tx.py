@@ -156,6 +156,25 @@ class _None(object):
     pass
 
 
+class ClientStats(object):
+    log = txaio.make_logger()
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._posts_by_url = {}
+
+    def marshal(self):
+        obj = {'posts': self._posts_by_url}
+        return obj
+
+    def log_post(self, url, data, timeout):
+        if url not in self._posts_by_url:
+            self._posts_by_url[url] = 0
+        self._posts_by_url[url] += 1
+
+
 class Client(object):
     """
     etcd Twisted client that talks to the gRPC HTTP gateway endpoint of etcd v3.
@@ -201,12 +220,17 @@ class Client(object):
         self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
         self._pool._factory.noisy = False
         self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
+        self._stats = ClientStats()
 
     @inlineCallbacks
     def _post(self, url, data, timeout):
+        self._stats.log_post(url, data, timeout)
         response = yield treq.post(url, json=data, timeout=(timeout or self._timeout))
         json_data = yield treq.json_content(response)
         returnValue(json_data)
+
+    def stats(self):
+        return self._stats.marshal()
 
     @inlineCallbacks
     def status(self, timeout=None):

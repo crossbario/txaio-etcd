@@ -30,7 +30,7 @@ import sys
 import time
 import six
 
-from txaioetcd._types import Transaction, OpDel, OpSet
+from txaioetcd import _types
 
 # Select the most precise wallclock measurement function available on the platform
 if sys.platform.startswith('win'):
@@ -48,7 +48,7 @@ else:
     walltime = time.time
 
 
-class OCCTransactionStats(object):
+class DbTransactionStats(object):
     def __init__(self):
         self.puts = 0
         self.dels = 0
@@ -75,7 +75,7 @@ class OCCTransactionStats(object):
 # @asynccontextmanager
 
 
-class OCCTransaction(object):
+class DbTransaction(object):
 
     PUT = 1
     DEL = 2
@@ -90,7 +90,7 @@ class OCCTransaction(object):
         :type write: bool
 
         :param stats: Transaction statistics tracked.
-        :type stats: etcd.OCCTransactionStats
+        :type stats: etcd.TransactionStats
 
         :param timeout: Transaction timeout in seconds.
         :type timeout: int
@@ -123,10 +123,10 @@ class OCCTransaction(object):
 
             ops = []
             for key, (op, data) in self._buffer.items():
-                if op == OCCTransaction.PUT:
-                    ops.append(OpSet(key, data))
-                elif op == OCCTransaction.DEL:
-                    ops.append(OpDel(key))
+                if op == DbTransaction.PUT:
+                    ops.append(_types.OpSet(key, data))
+                elif op == DbTransaction.DEL:
+                    ops.append(_types.OpDel(key))
                 else:
                     raise Exception('logic error')
 
@@ -136,7 +136,8 @@ class OCCTransaction(object):
             #    # modified revision comparison
             #    comps.append(CompModified(self._txn_revision, '<=', kv.mod_revision))
 
-            txn = Transaction(compare=comps, success=ops, failure=[])
+            # raw etcd transaction
+            txn = _types.Transaction(compare=comps, success=ops, failure=[])
 
             # commit buffered transaction to etcd
             res = await self._db._client.submit(txn, timeout=self._timeout)
@@ -160,9 +161,9 @@ class OCCTransaction(object):
         assert (self._txn is not None)
         if key in self._buffer:
             op, data = self._buffer[key]
-            if op == OCCTransaction.PUT:
+            if op == DbTransaction.PUT:
                 return data
-            elif op == OCCTransaction.DEL:
+            elif op == DbTransaction.DEL:
                 raise IndexError('no such key')
         else:
             result = await self._db._client.get(key)
@@ -173,7 +174,7 @@ class OCCTransaction(object):
         print('PUT', key)
         assert (self._txn is not None)
 
-        self._buffer[key] = (OCCTransaction.PUT, data)
+        self._buffer[key] = (DbTransaction.PUT, data)
 
         if self._stats:
             self._stats.puts += 1
@@ -183,7 +184,7 @@ class OCCTransaction(object):
         print('DEL', key)
         assert (self._txn is not None)
 
-        self._buffer[key] = (OCCTransaction.DEL, None)
+        self._buffer[key] = (DbTransaction.DEL, None)
 
         if self._stats:
             self._stats.dels += 1
@@ -213,6 +214,6 @@ class Database(object):
         if write and self._readonly:
             raise Exception('database is read-only')
 
-        txn = OCCTransaction(db=self, write=write, stats=stats, timeout=timeout)
+        txn = DbTransaction(db=self, write=write, stats=stats, timeout=timeout)
 
         return txn
