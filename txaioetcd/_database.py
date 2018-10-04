@@ -96,69 +96,83 @@ class DbTransaction(object):
         :type timeout: int
         """
         self._db = db
+
         self._write = write
         self._stats = stats
         self._timeout = timeout
-        self._txn = None
-        self._txn_revision = None
+
+        self._revision = None
+        self._committed = None
         self._buffer = None
 
-    async def __aenter__(self):
-        assert (self._txn is None)
+    @property
+    def revision(self):
+        return self._txn_revision
 
-        self._txn = await self._db._client.status()
-        self._txn_revision = self._txn.header.revision
+    @property
+    def committed(self):
+        return self._committed
+
+    async def __aenter__(self):
+        assert (self._revision is None)
+
+        status = await self._db._client.status()
+        self._revision = status.header.revision
         self._buffer = {}
 
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        assert (self._txn is not None)
+        assert (self._revision is not None)
 
         # yield etcd.set(b'foo', b'bar'
 
         # https://docs.python.org/3/reference/datamodel.html#object.__exit__
         # If the context was exited without an exception, all three arguments will be None.
         if exc_type is None:
+            if self._buffer:
+                ops = []
+                for key, (op, data) in self._buffer.items():
+                    if op == DbTransaction.PUT:
+                        ops.append(_types.OpSet(key, data))
+                    elif op == DbTransaction.DEL:
+                        ops.append(_types.OpDel(key))
+                    else:
+                        raise Exception('logic error')
 
-            ops = []
-            for key, (op, data) in self._buffer.items():
-                if op == DbTransaction.PUT:
-                    ops.append(_types.OpSet(key, data))
-                elif op == DbTransaction.DEL:
-                    ops.append(_types.OpDel(key))
-                else:
-                    raise Exception('logic error')
+                # this implements an optimistic-concurrency-control (OCC) scheme
+                comps = []
+                # for key in self._buffer.keys():
+                #    # modified revision comparison
+                #    comps.append(CompModified(self._txn_revision, '<=', kv.mod_revision))
 
-            # this implements an optimistic-concurrency-control (OCC) scheme
-            comps = []
-            # for key in self._buffer.keys():
-            #    # modified revision comparison
-            #    comps.append(CompModified(self._txn_revision, '<=', kv.mod_revision))
+                # raw etcd transaction
+                txn = _types.Transaction(compare=comps, success=ops, failure=[])
 
-            # raw etcd transaction
-            txn = _types.Transaction(compare=comps, success=ops, failure=[])
-
-            # commit buffered transaction to etcd
-            res = await self._db._client.submit(txn, timeout=self._timeout)
-            new_revision = res.header.revision
-            print('   >>> TRANSACTION (revision={}) committed with {} ops <<<'.format(new_revision, len(ops)))
+                # commit buffered transaction to etcd
+                res = await self._db._client.submit(txn, timeout=self._timeout)
+                self._committed = res.header.revision
+                print(
+                    '   >>> TRANSACTION committed successfully: revision={}, committed={}, ops={} <<<'.format(
+                        self._revision, self._committed, len(ops)))
+            else:
+                print('   >>> TRANSACTION committed empty <<<')
         else:
             # transaction aborted: throw away buffered transaction
             print('   >>> TRANSACTION failed! <<<')
+            self._committed = -1
 
-        # finally: reset context and transaction buffer
-        self._txn = None
-        self._txn_revision = 0
+        # finally: transaction buffer, but not the transaction revision
         self._buffer = None
+        # self._revision = None
 
     def id(self):
-        assert (self._txn is not None)
+        assert (self._revision is not None)
 
         return self._txn.id()
 
     async def get(self, key):
-        assert (self._txn is not None)
+        assert (self._revision is not None)
         if key in self._buffer:
             op, data = self._buffer[key]
             if op == DbTransaction.PUT:
@@ -171,7 +185,7 @@ class DbTransaction(object):
                 return result.kvs[0].value
 
     def put(self, key, data, overwrite=True):
-        assert (self._txn is not None)
+        assert (self._revision is not None)
 
         self._buffer[key] = (DbTransaction.PUT, data)
 
@@ -180,7 +194,7 @@ class DbTransaction(object):
         return True
 
     def delete(self, key):
-        assert (self._txn is not None)
+        assert (self._revision is not None)
 
         self._buffer[key] = (DbTransaction.DEL, None)
 
@@ -215,3 +229,10 @@ class Database(object):
         txn = DbTransaction(db=self, write=write, stats=stats, timeout=timeout)
 
         return txn
+
+    async def status(self):
+        _status = await self._client.status()
+        return _status.header.revision
+
+    def stats(self):
+        return self._client._stats.marshal()

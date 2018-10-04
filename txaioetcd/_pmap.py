@@ -252,7 +252,21 @@ class PersistentMap(MutableMapping):
             _data = index.pmap._serialize_value(key)
             txn.put(_key, _data)
 
-    async def __delitem__(self, txn_key):
+    def __delitem__(self, txn_key):
+        """
+
+        :param txn_key:
+        :return:
+        """
+        assert type(txn_key) == tuple and len(txn_key) == 2
+
+        txn, key = txn_key
+
+        _key = struct.pack('>H', self._slot) + self._serialize_key(key)
+
+        txn.delete(_key)
+
+    async def delete(self, txn_key):
         """
 
         :param txn_key:
@@ -271,7 +285,6 @@ class PersistentMap(MutableMapping):
 
         if self._indexes:
             for index in self._indexes.values():
-                # FIXME: remove index entries for value
                 _key = struct.pack('>H', index.pmap._slot) + index.pmap._serialize_key(index.fkey(value))
                 txn.delete(_key)
 

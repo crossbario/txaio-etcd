@@ -7,9 +7,11 @@ echo ""
 
 python connect.py
 python crud.py
-python etcdb.py
 python transaction.py
 python lease.py
 python watch.py
+
+python etcdb/basic.py
+python etcdb/index.py
 
 echo "*******************************************************************"

@@ -170,6 +170,7 @@ class ClientStats(object):
         return obj
 
     def log_post(self, url, data, timeout):
+        url = url.decode('utf8')
         if url not in self._posts_by_url:
             self._posts_by_url[url] = 0
         self._posts_by_url[url] += 1
