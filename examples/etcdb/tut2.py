@@ -14,16 +14,20 @@ from user import User
 
 
 async def main(reactor):
+    # Our main (asynchronous) entry point.
 
+    # users table schema (a table with UUID keys and CBOR values holding User objects)
     tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
+    # persistent KV database client using etcd backend
     db = Database(Client(reactor))
     revision = await db.status()
     print('connected to etcd: revision', revision)
 
+    # new user ID
     oid = uuid.uuid4()
 
-    # store a native object in a UUID->CBOR table slot
+    # 1) store a native object in a UUID->CBOR table slot
     async with db.begin(write=True) as txn:
         user = User.create_test_user()
         user.oid = oid
@@ -33,27 +37,40 @@ async def main(reactor):
 
     print('new user object stored: name={}, oid={}'.format(user.name, user.oid))
 
-    # load a native object from above UUID-CBOR table slot
+    # 2) load a native object from above UUID-CBOR table slot
     async with db.begin() as txn:
-        user = await tab_users[txn, oid]
-        if user:
-            print('user object loaded: name={}, oid={}:\n{}'.format(user.name, user.oid, user))
-        else:
-            print('no user object for oid={}'.format(oid))
+        _user = await tab_users[txn, oid]
+
+    if _user:
+        print('user object loaded: name={}, oid={}:\n{}'.format(_user.name, _user.oid, _user))
+        assert user == _user
+    else:
+        print('no user object for oid={}'.format(oid))
+
+    # 3) delete an object from above table slot
+    async with db.begin(write=True) as txn:
+        del tab_users[txn, oid]
+
+    print('user object deleted: oid={}'.format(oid))
 
     print('etcd stats', db.stats())
 
 
-# a wrapper that calls ensureDeferred
-# see: https://meejah.ca/blog/python3-twisted-and-asyncio
 def _main():
+    # a wrapper that calls ensureDeferred
+    # see: https://meejah.ca/blog/python3-twisted-and-asyncio
+
     return react(
         lambda reactor: ensureDeferred(
+            # call our real main ..
             main(reactor)
         )
     )
 
 
 if __name__ == '__main__':
+    # start logging at log level "info"
     txaio.start_logging(level='info')
+
+    # run our main function ..
     _main()
