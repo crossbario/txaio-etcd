@@ -10,4 +10,8 @@ Contents
    :maxdepth: 3
 
    index
+   client
+   database
+   tool
+   etcd
    api

@@ -37,15 +37,13 @@ async def main(reactor):
 
     print('new user object stored: name={}, oid={}'.format(user.name, user.oid))
 
-    # 2) load a native object from above UUID-CBOR table slot
+    # 2) load a native object from above table slot
     async with db.begin() as txn:
         _user = await tab_users[txn, oid]
 
-    if _user:
-        print('user object loaded: name={}, oid={}:\n{}'.format(_user.name, _user.oid, _user))
-        assert user == _user
-    else:
-        print('no user object for oid={}'.format(oid))
+    assert user
+    assert user == _user
+    print('user object loaded: name={}, oid={}:\n{}'.format(_user.name, _user.oid, _user))
 
     # 3) delete an object from above table slot
     async with db.begin(write=True) as txn:
