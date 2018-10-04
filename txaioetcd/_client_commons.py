@@ -40,6 +40,12 @@ ENDPOINT_SUBMIT = '{}/v3alpha/kv/txn'
 ENDPOINT_LEASE = '{}/v3alpha/lease/grant'
 
 
+def _check_binary(name, kv):
+    return
+    if type(kv) != six.binary_type:
+        raise TypeError('{} must be bytes, not {}'.format(name, type(kv)))
+
+
 class StatusRequestAssembler:
     def __init__(self, root_url):
         self.root_url = root_url
@@ -83,11 +89,8 @@ class PutRequestAssembler:
             self._data[u'lease'] = self._lease.lease_id
 
     def __validate(self):
-        if type(self._key) != six.binary_type:
-            raise TypeError('key must be bytes, not {}'.format(type(self._key)))
-
-        if type(self._value) != six.binary_type:
-            raise TypeError('value must be bytes, not {}'.format(type(self._value)))
+        _check_binary('key', self._key)
+        _check_binary('value', self._value)
 
         if self._lease is not None and not isinstance(self._lease, Lease):
             raise TypeError('lease must be a Lease object, not {}'.format(type(self._lease)))
