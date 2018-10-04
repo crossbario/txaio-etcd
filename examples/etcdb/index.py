@@ -6,8 +6,7 @@ txaio.use_twisted()
 from twisted.internet.task import react
 from twisted.internet.defer import ensureDeferred, inlineCallbacks
 
-from txaioetcd import Client, Database
-from txaioetcd import _pmap as pmap
+from txaioetcd import Client, Database, pmap
 
 from user import User
 

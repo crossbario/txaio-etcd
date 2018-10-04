@@ -34,6 +34,7 @@ from txaioetcd._types import KeySet, KeyValue, Header, Status, \
     Op, OpGet, OpSet, OpDel, Transaction, Expired, Error, Failed, Success, \
     Range
 
+from txaioetcd import _pmap as pmap
 from txaioetcd._database import Database, DbTransaction, DbTransactionStats
 from txaioetcd._lease import Lease
 
@@ -45,7 +46,7 @@ else:
 # This is the complete public API of txaioetcd:
 __all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header', 'Status', 'Range',
            'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp', 'CompValue', 'CompVersion',
-           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'Database', 'DbTransaction',
-           'DbTransactionStats')
+           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'pmap', 'Database',
+           'DbTransaction', 'DbTransactionStats')
 
 version = __version__

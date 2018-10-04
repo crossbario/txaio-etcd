@@ -14,4 +14,5 @@ Contents
    database
    tool
    etcd
+   examples
    api

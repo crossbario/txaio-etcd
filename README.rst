@@ -30,6 +30,9 @@ On the server-side, **etcd version 3.1 or higher** is required. To install txaio
 Getting Started
 ---------------
 
+Get the complete example source code for the getting started below from
+`here <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/tut2.py>`_.
+
 To start with **txaioetcd** using the high-level, remote persistent map API,
 define at least one class for data to be persisted,
 eg a `User class <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/user.py>`_:
@@ -53,8 +56,10 @@ Then define a table for a slot to be used with key-value stores:
 
 .. code-block:: python
 
+    from txaioetcd import pmap
+
     # users table schema (a table with UUID keys and CBOR values holding User objects)
-    tab_users = MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
 Above will define a table slot (with index 1) that has UUIDs for keys, and CBOR serialized
 objects of User class for values.
@@ -82,7 +87,7 @@ For example, the following is another valid slot definition:
 .. code-block:: python
 
     # users table schema (a table with OID keys and Python Pickle values holding User objects)
-    tab_users = MapOidPickle(2, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = pmap.MapOidPickle(2, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
 Above will define a table slot (with index 2) that has OIDs for keys, and Python Pickle serialized
 objects of User class for values.
@@ -96,10 +101,10 @@ First open a connection to etcd as a backing store:
 
     from txaioetcd import Client, Database
 
-    etcd = Client(reactor)
+    etcd = Client(reactor, url='http://localhost:2379')
     db = Database(etcd)
 
-To check a database connection:
+To check the database connection:
 
 .. code-block:: python
 
@@ -154,7 +159,7 @@ To put all the pieces together and run the code, you might use the following boi
     from txaioetcd import Client, Database
 
     async def main(reactor):
-        etcd = Client(reactor)
+        etcd = Client(reactor, url='http://localhost:2379')
         db = Database()
         revision = await db.status()
         print('connected to etcd: revision', revision)
@@ -172,27 +177,7 @@ To put all the pieces together and run the code, you might use the following boi
         txaio.start_logging(level='info')
         _main()
 
-
-Examples
---------
-
-Continue with the tutorial (for the high-level API):
-
-* `Tutorial 1 - Boilerplate <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/tut1.py>`_
-* `Tutorial 2 - Insert/Update/Delete Key-Values <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/tut2.py>`_
-
-or checkout the examples for the low-level API:
-
-* `Connecting <https://github.com/crossbario/txaio-etcd/tree/master/examples/connect.py>`_
-* `Basic Operations (CRUD) <https://github.com/crossbario/txaio-etcd/tree/master/examples/crud.py>`_
-* `Watching keys <https://github.com/crossbario/txaio-etcd/tree/master/examples/watch.py>`_
-* `Transactions <https://github.com/crossbario/txaio-etcd/tree/master/examples/transaction.py>`_
-* `Leases <https://github.com/crossbario/txaio-etcd/tree/master/examples/lease.py>`_
-
-or the high-level API examples:
-
-* `Database Basic Ops <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/basic.py>`_
-* `Database Indexing <https://github.com/crossbario/txaio-etcd/tree/master/examples/etcdb/index.py>`_
+Insert your code to operate on etcd in above placeholder.
 
 
 .. |Version| image:: https://img.shields.io/pypi/v/txaioetcd.svg
