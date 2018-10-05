@@ -43,9 +43,9 @@ from txaioetcd._client_tx import Client
 # from txaioetcd._client_pg import Client as ClientPg
 
 # This is the complete public API of txaioetcd:
-__all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header',
-           'Status', 'Range', 'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp',
-           'CompValue', 'CompVersion', 'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel',
-           'pmap', 'Database', 'DbTransaction', 'DbTransactionStats')
+__all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header', 'Status', 'Range',
+           'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp', 'CompValue', 'CompVersion',
+           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'pmap', 'Database',
+           'DbTransaction', 'DbTransactionStats')
 
 version = __version__
