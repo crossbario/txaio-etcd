@@ -38,15 +38,14 @@ from txaioetcd import _pmap as pmap
 from txaioetcd._database import Database, DbTransaction, DbTransactionStats
 from txaioetcd._lease import Lease
 
-if True:
-    from txaioetcd._client_tx import Client
-else:
-    from txaioetcd._client_aio import Client
+from txaioetcd._client_tx import Client
+# from txaioetcd._client_aio import Client as ClientAio
+# from txaioetcd._client_pg import Client as ClientPg
 
 # This is the complete public API of txaioetcd:
-__all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header', 'Status', 'Range',
-           'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp', 'CompValue', 'CompVersion',
-           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'pmap', 'Database',
-           'DbTransaction', 'DbTransactionStats')
+__all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header',
+           'Status', 'Range', 'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp',
+           'CompValue', 'CompVersion', 'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel',
+           'pmap', 'Database', 'DbTransaction', 'DbTransactionStats')
 
 version = __version__

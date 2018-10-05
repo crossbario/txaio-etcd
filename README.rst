@@ -47,7 +47,7 @@ eg a `User class <https://github.com/crossbario/txaio-etcd/tree/master/examples/
             """
 
         @staticmethod
-        def parse(obj):
+        def unmarshal(obj):
             """
             Parse a generic host language object into a native object of this class.
             """
@@ -59,7 +59,7 @@ Then define a table for a slot to be used with key-value stores:
     from txaioetcd import pmap
 
     # users table schema (a table with UUID keys and CBOR values holding User objects)
-    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.unmarshal)
 
 Above will define a table slot (with index 1) that has UUIDs for keys, and CBOR serialized
 objects of User class for values.
@@ -73,14 +73,14 @@ objects of User class for values.
 
 The available types for keys and values of persistant maps include:
 
-* String (UTF8)
-* Binary
-* OID (uint64)
-* UUID (uint128)
-* JSON
-* CBOR
-* Pickle (Python)
-* Flatbuffers
+* String (UTF8), eg ``MapUuidString``, ``MapStringString``, ``MapStringUuid``, ..
+* Binary, eg ``MapUuidBinary``, ``MapStringBinary``, ..
+* OID (uint64), eg ``MapUuidOid``, ``MapOidCbor``, ..
+* UUID (uint128), eg ``MapUuidCbor``, ``MapUuidUuid``, ..
+* JSON, eg ``MapUuidJson``, ``MapOidJson``, ``MapStringJson``, ..
+* CBOR, eg ``MapOidCbor``, ``MapUuidCbor``, ``MapStringCbor``, ..
+* Pickle (Python), eg ``MapStringPickle``, ..
+* Flatbuffers, eg ``MapUuidFlatbuffers``, ..
 
 For example, the following is another valid slot definition:
 
@@ -134,13 +134,10 @@ Load a native Python object from the table, that is remotely from etcd:
 
 .. code-block:: python
 
-    user = None
-
     # create an async read-only transaction when only accessing data in etcd
     async with db.begin() as txn:
-        user = tab_users[txn, user.oid]
-
-    print('user loaded: {}'.format(user))
+        user = await tab_users[txn, user.oid]
+        print('user loaded: {}'.format(user))
 
 
 Putting it together

@@ -26,134 +26,16 @@
 
 from __future__ import absolute_import
 
-import os
-import json
-import base64
-
-import six
+from psycopg2 import Binary
+from psycopg2.extras import Json
 
 import txaio
 txaio.use_twisted()  # noqa
 
-from twisted.internet.defer import Deferred, succeed, inlineCallbacks, returnValue, CancelledError
-from twisted.internet import protocol
-from twisted.web.client import Agent, HTTPConnectionPool, ResponseFailed
-from twisted.web.iweb import UNKNOWN_LENGTH
-from twisted.web.http_headers import Headers
-
-import treq
-
-from txaioetcd import KeySet, KeyValue, Status, Deleted, \
-    Revision, Failed, Success, Range, Lease
-
-from txaioetcd._types import _increment_last_byte
-from txaioetcd import _client_commons as commons
-from txaioetcd._client_commons import (
-    validate_client_submit_response,
-    ENDPOINT_WATCH,
-    ENDPOINT_SUBMIT,
-)
+from twisted.internet.defer import inlineCallbacks
+from twisted.enterprise import adbapi
 
 __all__ = ('Client', )
-
-
-class _BufferedSender(object):
-    """
-    HTTP buffered request sender for use with Twisted Web agent.
-    """
-
-    length = UNKNOWN_LENGTH
-
-    def __init__(self, body):
-        self.body = body
-        self.length = len(body)
-
-    def startProducing(self, consumer):  # noqa
-        consumer.write(self.body)
-        return succeed(None)
-
-    def pauseProducing(self):  # noqa
-        pass
-
-    def stopProducing(self):  # noqa
-        pass
-
-
-class _BufferedReceiver(protocol.Protocol):
-    """
-    HTTP buffered response receiver for use with Twisted Web agent.
-    """
-
-    def __init__(self, done):
-        self._buf = []
-        self._done = done
-
-    def dataReceived(self, data):  # noqa
-        self._buf.append(data)
-
-    def connectionLost(self, reason):  # noqa
-        # TODO: test if reason is twisted.web.client.ResponseDone, if not, do an errback
-        if self._done:
-            self._done.callback(b''.join(self._buf))
-            self._done = None
-
-
-class _StreamingReceiver(protocol.Protocol):
-    """
-    HTTP streaming response receiver for use with Twisted Web agent.
-    """
-
-    log = txaio.make_logger()
-
-    SEP = b'\x0a'
-    """
-    A streaming response from the gRPC HTTP gateway of etcd3 will send
-    JSON pieces separated by "newline".
-
-    The exact separator used probably depends on the platform where
-    etcd3 (the server) runs - not sure. But Unix newline works for me now.
-    """
-
-    def __init__(self, cb, done=None):
-        """
-        :param cb: Callback to fire upon a JSON chunk being received and parsed.
-        :type cb: callable
-
-        :param done: Deferred to fire when done.
-        :type done: t.i.d.Deferred
-        """
-        self._cb = cb
-        self._done = done
-
-    def dataReceived(self, data):  # noqa
-        for msg in data.split(self.SEP):
-            try:
-                obj = json.loads(msg.decode('utf8'))
-            except Exception as e:
-                self.log.warn('JSON parsing of etcd streaming response from failed: {}'.format(e))
-            else:
-                for evt in obj[u'result'].get(u'events', []):
-                    if u'kv' in evt:
-                        kv = KeyValue._parse(evt[u'kv'])
-                        try:
-                            self._cb(kv)
-                        except Exception as e:
-                            self.log.warn('exception raised from etcd watch callback {} swallowed: {}'.format(
-                                self._cb, e))
-
-    #   ODD: Trying to use a parameter instead of *args errors out as soon as the
-    #        parameter is accessed.
-    #
-    #   The check for errors to ignore (Cancelled) is handled further up the chain ..
-
-    def connectionLost(self, *args):  # noqa
-        if self._done:
-            self._done.callback(args[0])
-            self._done = None
-
-
-class _None(object):
-    pass
 
 
 class ClientStats(object):
@@ -178,9 +60,9 @@ class ClientStats(object):
 
 class Client(object):
     """
-    etcd Twisted client that talks to the gRPC HTTP gateway endpoint of etcd v3.
 
-    See: https://coreos.com/etcd/docs/latest/dev-guide/apispec/swagger/rpc.swagger.json
+    docker run --name postgres -e POSTGRES_PASSWORD=postgres -d postgres
+    docker run -it --rm --name postgres -e POSTGRES_PASSWORD=postgres -d postgres
     """
 
     log = txaio.make_logger()
@@ -194,46 +76,49 @@ class Client(object):
     gRPC HTTP gateway endpoint of etcd.
     """
 
-    def __init__(self, reactor, url=None, pool=None, timeout=None, connect_timeout=None):
+    def __init__(self,
+                 reactor,
+                 pool=None,
+                 host='127.0.0.1',
+                 port=5432,
+                 database='postgres',
+                 user='postgres',
+                 password='postgres'):
         """
 
         :param rector: Twisted reactor to use.
         :type reactor: class
-
-        :param url: etcd URL, eg `http://localhost:2379`
-        :type url: str
-
-        :param pool: Twisted Web agent connection pool
-        :type pool:
-
-        :param timeout: If given, a global request timeout used for all
-            requests to etcd.
-        :type timeout: float or None
-
-        :param connect_timeout: If given, a global connection timeout used when
-            opening a new HTTP connection to etcd.
-        :type connect_timeout: float or None
         """
-        if url is not None and type(url) != six.text_type:
-            raise TypeError('url must be of type unicode, was {}'.format(type(url)))
-        self._url = url or os.environ.get(u'ETCD_URL', u'http://localhost:2379')
-        self._timeout = timeout
-        self._pool = pool or HTTPConnectionPool(reactor, persistent=True)
-        self._pool._factory.noisy = False
-        self._agent = Agent(reactor, connectTimeout=connect_timeout, pool=self._pool)
         self._stats = ClientStats()
 
-    @inlineCallbacks
-    def _post(self, url, data, timeout):
-        self._stats.log_post(url, data, timeout)
-        response = yield treq.post(url, json=data, timeout=(timeout or self._timeout))
-        json_data = yield treq.json_content(response)
-        returnValue(json_data)
+        if not pool:
+            # create a new database connection pool. connections are created lazy (as needed)
+            #
+            def on_pool_connection(conn):
+                # callback fired when Twisted adds a new database connection to the pool.
+                # use this to do any app specific configuration / setup on the connection
+                pid = conn.get_backend_pid()
+                print('New psycopg2 connection created (backend PID={})'.format(pid))
+
+            pool = adbapi.ConnectionPool(
+                'psycopg2',
+                host=host,
+                port=port,
+                database=database,
+                user=user,
+                password=password,
+                cp_min=3,
+                cp_max=10,
+                cp_noisy=True,
+                cp_openfun=on_pool_connection,
+                cp_reconnect=True,
+                cp_good_sql='SELECT 1')
+
+        self._pool = pool
 
     def stats(self):
         return self._stats.marshal()
 
-    @inlineCallbacks
     def status(self, timeout=None):
         """
         Get etcd status.
@@ -244,13 +129,14 @@ class Client(object):
         :returns: The current etcd cluster status.
         :rtype: instance of :class:`txaioetcd.Status`
         """
-        assembler = commons.StatusRequestAssembler(self._url)
 
-        obj = yield self._post(assembler.url, assembler.data, timeout)
+        def run(txn):
+            txn.execute("SELECT now()")
+            rows = txn.fetchall()
+            res = "{0}".format(rows[0][0])
+            return res
 
-        status = Status._parse(obj)
-
-        returnValue(status)
+        return self._pool.runInteraction(run)
 
     @inlineCallbacks
     def set(self, key, value, lease=None, return_previous=None, timeout=None):
@@ -282,15 +168,8 @@ class Client(object):
         :returns: Revision info
         :rtype: instance of :class:`txaioetcd.Revision`
         """
-        assembler = commons.PutRequestAssembler(self._url, key, value, lease, return_previous)
+        raise NotImplementedError()
 
-        obj = yield self._post(assembler.url, assembler.data, timeout)
-
-        revision = Revision._parse(obj)
-
-        returnValue(revision)
-
-    @inlineCallbacks
     def get(self,
             key,
             range_end=None,
@@ -372,13 +251,14 @@ class Client(object):
         :param timeout: Request timeout in seconds.
         :type timeout: int or None
         """
-        assembler = commons.GetRequestAssembler(self._url, key, range_end)
 
-        obj = yield self._post(assembler.url, assembler.data, timeout)
+        def run(pg_txn):
+            pg_txn.execute("SELECT pgetcd.get(%s,%s)", (Binary(key), 10))
+            rows = pg_txn.fetchall()
+            res = "{0}".format(rows[0][0])
+            return res
 
-        result = Range._parse(obj)
-
-        returnValue(result)
+        return self._pool.runInteraction(run)
 
     @inlineCallbacks
     def delete(self, key, return_previous=None, timeout=None):
@@ -397,13 +277,7 @@ class Client(object):
         :returns: Deletion info
         :rtype: instance of :class:`txaioetcd.Deleted`
         """
-        assembler = commons.DeleteRequestAssembler(self._url, key, return_previous)
-
-        obj = yield self._post(assembler.url, assembler.data, timeout)
-
-        deleted = Deleted._parse(obj)
-
-        returnValue(deleted)
+        raise NotImplementedError()
 
     def watch(self, keys, on_watch, filters=None, start_revision=None, return_previous=None):
         """
@@ -431,100 +305,8 @@ class Client(object):
             or which fires with an error in case the watching could not be started.
         :rtype: twisted.internet.Deferred
         """
-        d = self._start_watching(keys, on_watch, filters, start_revision, return_previous)
+        raise NotImplementedError()
 
-        #
-        #   ODD: Trying to use a parameter instead of *args errors out as soon as the
-        #        parameter is accessed.
-        #
-        def on_err(*args):
-            if args[0].type not in [CancelledError, ResponseFailed]:
-                self.log.warn('etcd watch terminated with "{error}"', error=args[0].type)
-                return args[0]
-
-        d.addErrback(on_err)
-        return d
-
-    def _start_watching(self, keys, on_watch, filters, start_revision, return_previous):
-        data = []
-        headers = dict()
-        url = ENDPOINT_WATCH.format(self._url).encode()
-
-        # create watches for all key prefixes
-        for key in keys:
-            if type(key) == six.binary_type:
-                key = KeySet(key)
-            elif isinstance(key, KeySet):
-                pass
-            else:
-                raise TypeError('key must be binary string or KeySet, not {}'.format(type(key)))
-
-            if key.type == KeySet._SINGLE:
-                range_end = None
-            elif key.type == KeySet._PREFIX:
-                range_end = _increment_last_byte(key.key)
-            elif key.type == KeySet._RANGE:
-                range_end = key.range_end
-            else:
-                raise Exception('logic error')
-
-            obj = {
-                'create_request': {
-                    u'start_revision': start_revision,
-                    u'key': base64.b64encode(key.key).decode(),
-
-                    # range_end is the end of the range [key, range_end) to watch.
-                    # If range_end is not given,\nonly the key argument is watched.
-                    # If range_end is equal to '\\0', all keys greater than nor equal
-                    # to the key argument are watched. If the range_end is one bit
-                    # larger than the given key,\nthen all keys with the prefix (the
-                    # given key) will be watched.
-
-                    # progress_notify is set so that the etcd server will periodically
-                    # send a WatchResponse with\nno events to the new watcher if there
-                    # are no recent events. It is useful when clients wish to recover
-                    # a disconnected watcher starting from a recent known revision.
-                    # The etcd server may decide how often it will send notifications
-                    # based on current load.
-                    u'progress_notify': True,
-                }
-            }
-            if range_end:
-                obj[u'create_request'][u'range_end'] = base64.b64encode(range_end).decode()
-
-            if filters:
-                obj[u'create_request'][u'filters'] = filters
-
-            if return_previous:
-                # If prev_kv is set, created watcher gets the previous KV
-                # before the event happens.
-                # If the previous KV is already compacted, nothing will be
-                # returned.
-                obj[u'create_request'][u'prev_kv'] = True
-
-            data.append(json.dumps(obj).encode('utf8'))
-
-        data = b'\n'.join(data)
-
-        # HTTP/POST request in one go, but response is streaming ..
-        d = self._agent.request(b'POST', url, Headers(headers), _BufferedSender(data))
-
-        def handle_response(response):
-            if response.code == 200:
-                done = Deferred()
-                response.deliverBody(_StreamingReceiver(on_watch, done))
-                return done
-            else:
-                raise Exception('unexpected response status {}'.format(response.code))
-
-        def handle_error(err):
-            self.log.warn('could not start watching on etcd: {error}', error=err.value)
-            return err
-
-        d.addCallbacks(handle_response, handle_error)
-        return d
-
-    @inlineCallbacks
     def submit(self, txn, timeout=None):
         """
         Submit a transaction.
@@ -574,17 +356,15 @@ class Client(object):
         :rtype: instance of :class:`txaioetcd.Success`,
             :class:`txaioetcd.Failed` or :class:`txaioetcd.Error`
         """
-        url = ENDPOINT_SUBMIT.format(self._url).encode()
-        data = txn._marshal()
 
-        obj = yield self._post(url, data, timeout)
+        def run(pg_txn):
+            val = Json(txn._marshal())
+            pg_txn.execute("SELECT pgetcd.submit(%s,%s)", (val, 10))
+            rows = pg_txn.fetchall()
+            res = "{0}".format(rows[0][0])
+            return res
 
-        header, responses = validate_client_submit_response(obj)
-
-        if obj.get(u'succeeded', False):
-            returnValue(Success(header, responses))
-        else:
-            raise Failed(header, responses)
+        return self._pool.runInteraction(run)
 
     @inlineCallbacks
     def lease(self, time_to_live, lease_id=None, timeout=None):
@@ -611,10 +391,4 @@ class Client(object):
             can be used for refreshing or revoking the least etc.
         :rtype: instance of :class:`txaioetcd.Lease`
         """
-        assembler = commons.LeaseRequestAssembler(self._url, time_to_live, lease_id)
-
-        obj = yield self._post(assembler.url, assembler.data, timeout)
-
-        lease = Lease._parse(self, obj)
-
-        returnValue(lease)
+        raise NotImplementedError()

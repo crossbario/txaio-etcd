@@ -24,8 +24,10 @@ test_syntax:
 test_docs:
 	tox -e sphinx
 
+build_sql:
+	psql -h localhost postgres postgres -f txaioetcd/pgetcd.sql
+
 clean:
-	-sudo rm -rf ./.etcd
 	-docker rmi crossbario/txaioetcd
 	-rm -rf ./txaioetcd.egg-info
 	-rm -rf ./build

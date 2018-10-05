@@ -117,7 +117,8 @@ class DbTransaction(object):
         assert (self._revision is None)
 
         status = await self._db._client.status()
-        self._revision = status.header.revision
+        # self._revision = status.header.revision
+        self._revision = status
         self._buffer = {}
 
         return self
@@ -151,7 +152,8 @@ class DbTransaction(object):
 
                 # commit buffered transaction to etcd
                 res = await self._db._client.submit(txn, timeout=self._timeout)
-                self._committed = res.header.revision
+                # self._committed = res.header.revision
+                self._committed = res
                 print(
                     '   >>> TRANSACTION committed successfully: revision={}, committed={}, ops={} <<<'.format(
                         self._revision, self._committed, len(ops)))
@@ -181,8 +183,9 @@ class DbTransaction(object):
                 raise IndexError('no such key')
         else:
             result = await self._db._client.get(key)
-            if result.kvs:
-                return result.kvs[0].value
+            return result
+            # if result.kvs:
+            #    return result.kvs[0].value
 
     def put(self, key, data, overwrite=True):
         assert (self._revision is not None)
@@ -232,7 +235,8 @@ class Database(object):
 
     async def status(self):
         _status = await self._client.status()
-        return _status.header.revision
+        return _status
+        # return _status.header.revision
 
     def stats(self):
         return self._client._stats.marshal()
