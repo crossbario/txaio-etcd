@@ -15,5 +15,7 @@ python etcdb/basic.py
 python etcdb/index.py
 python etcdb/tut1.py
 python etcdb/tut2.py
+python etcdb/tut3.py
+python etcdb/tut3.py  # yes, run a 2nd time!
 
 echo "*******************************************************************"

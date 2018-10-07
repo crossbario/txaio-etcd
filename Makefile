@@ -1,4 +1,4 @@
-.PHONY: test docs pep8
+.PHONY: test docs pep8 examples
 
 default: test
 
@@ -26,6 +26,9 @@ test_docs:
 
 build_sql:
 	psql -h localhost postgres postgres -f txaioetcd/pgetcd.sql
+
+examples:
+	cd examples && sh run.sh
 
 clean:
 	-docker rmi crossbario/txaioetcd
