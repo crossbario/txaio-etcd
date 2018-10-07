@@ -33,9 +33,9 @@ import uuid
 from pprint import pformat
 
 import six
-import cbor
+import cbor2
 
-from txaio import make_logger
+import txaio
 from txaioetcd import _types, _pmap
 
 from typing import Optional, List
@@ -54,6 +54,8 @@ else:
     # (2) ftime() -- resolution in milliseconds
     # (3) time() -- resolution in seconds
     walltime = time.time
+
+txaio.use_twisted()
 
 
 class DbTransactionStats(object):
@@ -84,7 +86,7 @@ class DbTransaction(object):
     PUT = 1
     DEL = 2
 
-    log = make_logger()
+    log = txaio.make_logger()
 
     def __init__(self, db, write=False, stats=None, timeout=None):
         """
@@ -165,10 +167,17 @@ class DbTransaction(object):
                 res = await self._db._client.submit(txn, timeout=self._timeout)
                 # self._committed = res.header.revision
                 self._committed = res
-                self.log.info('from revision {from_revision}: transaction committed (revision={revision}, committed={committed}, ops={ops})',
-                              from_revision=self._revision, revision=self._revision, committed=self._committed, ops=len(ops))
+
+                self.log.info(
+                    'from revision {from_revision}: tx commit (rev={revision}, commit={committed}, ops={ops})',
+                    from_revision=self._revision,
+                    revision=self._revision,
+                    committed=self._committed,
+                    ops=len(ops))  # noqa
             else:
-                self.log.info('from revision {from_revision}: transaction committed (empty)', from_revision=self._revision)
+                self.log.info(
+                    'from revision {from_revision}: transaction committed (empty)',
+                    from_revision=self._revision)
         else:
             # transaction aborted: throw away buffered transaction
             self.log.info('transaction aborted')
@@ -189,7 +198,11 @@ class DbTransaction(object):
         else:
             result = await self._db._client.get(key, range_end=range_end, keys_only=keys_only)
             if result.kvs:
-                self.log.debug('etcd from key {from_key} to {to_key}: loaded {cnt} records', from_key=key, to_key=range_end, cnt=len(result.kvs))
+                self.log.debug(
+                    'etcd from key {from_key} to {to_key}: loaded {cnt} records',
+                    from_key=key,
+                    to_key=range_end,
+                    cnt=len(result.kvs))
                 if range_end:
                     return result.kvs
                 else:
@@ -279,21 +292,16 @@ class ConfigurationElement(object):
         oid = value.get('oid', None)
         if oid:
             oid = uuid.UUID(oid)
-        obj = ConfigurationElement(oid=oid,
-                                   name=value.get('name', None),
-                                   description=value.get('description', None),
-                                   tags=value.get('tags', None))
+        obj = ConfigurationElement(
+            oid=oid,
+            name=value.get('name', None),
+            description=value.get('description', None),
+            tags=value.get('tags', None))
         return obj
 
 
 class Slot(ConfigurationElement):
-    def __init__(self,
-                 oid=None,
-                 name=None,
-                 description=None,
-                 tags=None,
-                 slot=None,
-                 creator=None):
+    def __init__(self, oid=None, name=None, description=None, tags=None, slot=None, creator=None):
         ConfigurationElement.__init__(self, oid=oid, name=name, description=description, tags=tags)
         self._slot = slot
         self._creator = creator
@@ -326,8 +334,13 @@ class Slot(ConfigurationElement):
         slot = data.get('slot', None)
         creator = data.get('creator', None)
 
-        drvd_obj = Slot(oid=obj.oid, name=obj.name, description=obj.description,
-                        tags=obj.tags, slot=slot, creator=creator)
+        drvd_obj = Slot(
+            oid=obj.oid,
+            name=obj.name,
+            description=obj.description,
+            tags=obj.tags,
+            slot=slot,
+            creator=creator)
         return drvd_obj
 
 
@@ -341,6 +354,7 @@ class Database(object):
 
     https://github.com/etcd-io/etcd/blob/master/Documentation/learning/data_model.md
     """
+    log = txaio.make_logger()
 
     def __init__(self, client, prefix=None, readonly=False):
         """
@@ -373,7 +387,7 @@ class Database(object):
             if kv.key and len(kv.key) >= 4:
                 slot_index = struct.unpack('>H', kv.key[2:4])[0]
                 assert kv.value
-                slot = Slot.parse(cbor.loads(kv.value))
+                slot = Slot.parse(cbor2.loads(kv.value))
                 assert slot.slot == slot_index
                 slots[slot.oid] = slot
                 slots_by_index[slot.oid] = slot_index
@@ -419,7 +433,7 @@ class Database(object):
         key = b'\0\0' + struct.pack('>H', slot_index)
         if slot:
             obj = slot.marshal()
-            data = cbor.dumps(obj)
+            data = cbor2.dumps(obj)
 
         if not slot:
             result = await self._client.get(key)

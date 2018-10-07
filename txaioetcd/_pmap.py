@@ -365,7 +365,8 @@ class PersistentMap(MutableMapping):
         from_key = struct.pack('>H', self._slot)
         if prefix:
             from_key += self._serialize_key(prefix)
-            to_key = ((int.from_bytes(from_key, byteorder='big') + 1).to_bytes(len(from_key), byteorder='big'))
+            to_key = ((int.from_bytes(from_key, byteorder='big') + 1).to_bytes(
+                len(from_key), byteorder='big'))
         else:
             to_key = struct.pack('>H', self._slot + 1)
 
