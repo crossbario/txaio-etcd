@@ -28,9 +28,17 @@ from __future__ import absolute_import
 
 import sys
 import time
-import six
+import struct
+import uuid
+from pprint import pformat
 
-from txaioetcd import _types
+import six
+import cbor
+
+from txaio import make_logger
+from txaioetcd import _types, _pmap
+
+from typing import Optional, List
 
 # Select the most precise wallclock measurement function available on the platform
 if sys.platform.startswith('win'):
@@ -71,14 +79,12 @@ class DbTransactionStats(object):
         self._started = walltime()
 
 
-# from contextlib import asynccontextmanager
-# @asynccontextmanager
-
-
 class DbTransaction(object):
 
     PUT = 1
     DEL = 2
+
+    log = make_logger()
 
     def __init__(self, db, write=False, stats=None, timeout=None):
         """
@@ -105,12 +111,20 @@ class DbTransaction(object):
         self._committed = None
         self._buffer = None
 
+    def id(self):
+        assert (self._revision is not None)
+
+        return self._revision
+
     @property
     def revision(self):
+        assert (self._revision is not None)
+
         return self._txn_revision
 
     @property
     def committed(self):
+        assert (self._revision is not None)
         return self._committed
 
     async def __aenter__(self):
@@ -124,8 +138,6 @@ class DbTransaction(object):
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         assert (self._revision is not None)
-
-        # yield etcd.set(b'foo', b'bar'
 
         # https://docs.python.org/3/reference/datamodel.html#object.__exit__
         # If the context was exited without an exception, all three arguments will be None.
@@ -153,38 +165,35 @@ class DbTransaction(object):
                 res = await self._db._client.submit(txn, timeout=self._timeout)
                 # self._committed = res.header.revision
                 self._committed = res
-                print(
-                    '   >>> TRANSACTION committed successfully: revision={}, committed={}, ops={} <<<'.format(
-                        self._revision, self._committed, len(ops)))
+                self.log.info('from revision {from_revision}: transaction committed (revision={revision}, committed={committed}, ops={ops})',
+                              from_revision=self._revision, revision=self._revision, committed=self._committed, ops=len(ops))
             else:
-                print('   >>> TRANSACTION committed empty <<<')
+                self.log.info('from revision {from_revision}: transaction committed (empty)', from_revision=self._revision)
         else:
             # transaction aborted: throw away buffered transaction
-            print('   >>> TRANSACTION failed! <<<')
+            self.log.info('transaction aborted')
             self._committed = -1
 
         # finally: transaction buffer, but not the transaction revision
         self._buffer = None
-        # self._revision = None
 
-    def id(self):
+    async def get(self, key, range_end=None, keys_only=None):
         assert (self._revision is not None)
 
-        return self._txn.id()
-
-    async def get(self, key):
-        assert (self._revision is not None)
-
-        if key in self._buffer:
+        if range_end is None and key in self._buffer:
             op, data = self._buffer[key]
             if op == DbTransaction.PUT:
                 return data
             elif op == DbTransaction.DEL:
                 return None
         else:
-            result = await self._db._client.get(key)
+            result = await self._db._client.get(key, range_end=range_end, keys_only=keys_only)
             if result.kvs:
-                return result.kvs[0].value
+                self.log.debug('etcd from key {from_key} to {to_key}: loaded {cnt} records', from_key=key, to_key=range_end, cnt=len(result.kvs))
+                if range_end:
+                    return result.kvs
+                else:
+                    return result.kvs[0].value
 
     def put(self, key, data, overwrite=True):
         assert (self._revision is not None)
@@ -205,6 +214,123 @@ class DbTransaction(object):
         return True
 
 
+class ConfigurationElement(object):
+
+    oid: uuid.UUID
+    name: str
+    description: Optional[str]
+    tags: Optional[List[str]]
+
+    def __init__(self, oid=None, name=None, description=None, tags=None):
+        self._oid = oid
+        self._name = name
+        self._description = description
+        self._tags = tags
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if other.oid != self.oid:
+            return False
+        if other.name != self.name:
+            return False
+        if other.description != self.description:
+            return False
+        if (self.tags and not other.tags) or (not self.tags and other.tags):
+            return False
+        if other.tags and self.tags:
+            if set(other.tags) ^ set(self.tags):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def oid(self):
+        return self._oid
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def description(self):
+        return self._description
+
+    @property
+    def tags(self):
+        return self._tags
+
+    def marshal(self):
+        value = {
+            u'oid': str(self._oid),
+            u'name': self._name,
+        }
+        if self.description:
+            value[u'description'] = self._description
+        if self.tags:
+            value[u'tags'] = self._tags
+        return value
+
+    @staticmethod
+    def parse(value):
+        assert type(value) == dict
+        oid = value.get('oid', None)
+        if oid:
+            oid = uuid.UUID(oid)
+        obj = ConfigurationElement(oid=oid,
+                                   name=value.get('name', None),
+                                   description=value.get('description', None),
+                                   tags=value.get('tags', None))
+        return obj
+
+
+class Slot(ConfigurationElement):
+    def __init__(self,
+                 oid=None,
+                 name=None,
+                 description=None,
+                 tags=None,
+                 slot=None,
+                 creator=None):
+        ConfigurationElement.__init__(self, oid=oid, name=name, description=description, tags=tags)
+        self._slot = slot
+        self._creator = creator
+
+    def __str__(self):
+        return pformat(self.marshal())
+
+    @property
+    def creator(self):
+        return self._creator
+
+    @property
+    def slot(self):
+        return self._slot
+
+    def marshal(self):
+        obj = ConfigurationElement.marshal(self)
+        obj.update({
+            'creator': self._creator,
+            'slot': self._slot,
+        })
+        return obj
+
+    @staticmethod
+    def parse(data):
+        assert type(data) == dict
+
+        obj = ConfigurationElement.parse(data)
+
+        slot = data.get('slot', None)
+        creator = data.get('creator', None)
+
+        drvd_obj = Slot(oid=obj.oid, name=obj.name, description=obj.description,
+                        tags=obj.tags, slot=slot, creator=creator)
+        return drvd_obj
+
+
 class Database(object):
     """
 
@@ -217,24 +343,155 @@ class Database(object):
     """
 
     def __init__(self, client, prefix=None, readonly=False):
+        """
+
+        :param client:
+        :param prefix:
+        :param readonly:
+        """
         assert prefix is None or type(prefix) == six.binary_type
         assert type(readonly) == bool
         self._client = client
         self._prefix = prefix
         self._readonly = readonly
+        self._slots = None
+        self._slots_by_index = None
+
+    async def status(self):
+        """
+
+        :return:
+        """
+        _status = await self._client.status()
+        return _status.header.revision
+
+    async def _cache_slots(self):
+        slots = {}
+        slots_by_index = {}
+        result = await self._client.get(_types.KeySet(b'\0\0', prefix=True))
+        for kv in result.kvs:
+            if kv.key and len(kv.key) >= 4:
+                slot_index = struct.unpack('>H', kv.key[2:4])[0]
+                assert kv.value
+                slot = Slot.parse(cbor.loads(kv.value))
+                assert slot.slot == slot_index
+                slots[slot.oid] = slot
+                slots_by_index[slot.oid] = slot_index
+        self._slots = slots
+        self._slots_by_index = slots_by_index
+
+    async def _get_slots(self, cached=True):
+        """
+
+        :param cached:
+        :return:
+        """
+        if self._slots is None or not cached:
+            await self._cache_slots()
+        return self._slots
+
+    async def _get_free_slot(self):
+        """
+
+        :param cached:
+        :return:
+        """
+        slot_indexes = sorted(self._slots_by_index.values())
+        if len(slot_indexes) > 0:
+            return slot_indexes[-1] + 1
+        else:
+            return 1
+
+    async def _set_slot(self, slot_index, slot):
+        """
+
+        :param slot_index:
+        :param meta:
+        :return:
+        """
+        assert type(slot_index) in six.integer_types
+        assert slot_index > 0 and slot_index < 65536
+        assert slot is None or isinstance(slot, Slot)
+
+        if slot:
+            assert slot_index == slot.slot
+
+        key = b'\0\0' + struct.pack('>H', slot_index)
+        if slot:
+            obj = slot.marshal()
+            data = cbor.dumps(obj)
+
+        if not slot:
+            result = await self._client.get(key)
+            if result.kvs:
+                slot = result.kvs[0]
+                await self._client.delete(key)
+                if slot.oid in self._slots:
+                    del self._slots[slot.oid]
+                if slot.oid in self._slots_by_index:
+                    del self._slots_by_index[slot.oid]
+                print('deleted metadata')
+
+        if slot:
+            await self._client.set(key, data)
+            self._slots[slot.oid] = slot
+            self._slots_by_index[slot.oid] = slot_index
+            print('wrote metadata for {} to slot {}'.format(slot.oid, slot_index))
+
+    async def attach_slot(self, oid, klass, marshal, unmarshal, create=True, name=None, description=None):
+        """
+
+        :param slot:
+        :param klass:
+        :param marshal:
+        :param unmarshal:
+        :return:
+        """
+        assert isinstance(oid, uuid.UUID)
+        assert issubclass(klass, _pmap.PersistentMap)
+        assert callable(marshal)
+        assert callable(unmarshal)
+        assert type(create) == bool
+        assert name is None or type(name) == six.text_type
+        assert description is None or type(description) == six.text_type
+
+        await self._get_slots()
+
+        if oid not in self._slots_by_index:
+            print('no slot for persistant map of oid {} found'.format(oid))
+            if create:
+                slot_index = await self._get_free_slot()
+                slot = Slot(oid=oid, creator='unknown', slot=slot_index, name=name, description=description)
+                print('allocating slot {} for persistant map {} ..'.format(slot_index, oid))
+                await self._set_slot(slot_index, slot)
+            else:
+                raise Exception('no slot with persistant map of oid {} found'.format(oid))
+        else:
+            slot_index = self._slots_by_index[oid]
+            print('persistant map of oid {} found in slot {}'.format(oid, slot_index))
+
+        slot_pmap = klass(slot_index, marshal=marshal, unmarshal=unmarshal)
+
+        return slot_pmap
+
+    def stats(self):
+        """
+
+        :return:
+        """
+        return self._client._stats.marshal()
 
     def begin(self, write=False, stats=None, timeout=None):
+        """
 
+        :param write:
+        :param stats:
+        :param timeout:
+        :return:
+        """
         if write and self._readonly:
             raise Exception('database is read-only')
 
         txn = DbTransaction(db=self, write=write, stats=stats, timeout=timeout)
 
         return txn
-
-    async def status(self):
-        _status = await self._client.status()
-        return _status.header.revision
-
-    def stats(self):
-        return self._client._stats.marshal()

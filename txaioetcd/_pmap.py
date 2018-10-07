@@ -169,6 +169,13 @@ class PersistentMap(MutableMapping):
             self._decompress = lambda data: data
         self._indexes = {}
 
+    def __str__(self):
+        return '{}(slot={})'.format(self.__class__, self._slot)
+
+    @property
+    def slot(self):
+        return self._slot
+
     def attach_index(self, name, fkey, pmap):
         """
 
@@ -294,7 +301,7 @@ class PersistentMap(MutableMapping):
     def __iter__(self):
         raise Exception('not implemented')
 
-    def select(self, txn, from_key=None, to_key=None, return_keys=True, return_values=True):
+    async def select(self, txn, from_key=None, to_key=None, return_keys=False, return_values=True):
         """
 
         :param txn:
@@ -304,33 +311,66 @@ class PersistentMap(MutableMapping):
         :param return_values:
         :return:
         """
-        return PersistentMapIterator(
-            txn, self, from_key=from_key, to_key=to_key, return_keys=return_keys, return_values=return_values)
+        assert return_keys or return_values
 
-    def count(self, txn, prefix=None):
+        if from_key:
+            from_key = self._serialize_key(from_key)
+        else:
+            from_key = struct.pack('>H', self._slot)
+
+        if to_key:
+            to_key = self._serialize_key(to_key)
+        else:
+            to_key = struct.pack('>H', self._slot + 1)
+
+        res_keys, res_values = None, None
+        result = await txn.get(from_key, range_end=to_key, keys_only=not return_values)
+
+        if result:
+            if return_keys:
+                res_keys = []
+
+            if return_values:
+                res_values = []
+
+            for kv in result:
+                if return_keys:
+                    data = kv.key[2:]
+                    obj = self._deserialize_key(data)
+                    res_keys.append(obj)
+
+                if return_values:
+                    data = kv.value
+                    if self._decompress:
+                        data = self._decompress(data)
+                    obj = self._deserialize_value(data)
+                    res_values.append(obj)
+
+        if return_keys and return_values:
+            return res_keys, res_values
+        elif return_keys:
+            return res_keys
+        elif return_values:
+            return res_values
+        else:
+            raise Exception('logic error')
+
+    async def count(self, txn, prefix=None):
         """
 
         :param txn:
         :param prefix:
         :return:
         """
-        key_from = struct.pack('>H', self._slot)
+        from_key = struct.pack('>H', self._slot)
         if prefix:
-            key_from += self._serialize_key(prefix)
-        kfl = len(key_from)
+            from_key += self._serialize_key(prefix)
+            to_key = ((int.from_bytes(from_key, byteorder='big') + 1).to_bytes(len(from_key), byteorder='big'))
+        else:
+            to_key = struct.pack('>H', self._slot + 1)
 
-        cnt = 0
-        cursor = txn._txn.cursor()
-        has_more = cursor.set_range(key_from)
-        while has_more:
-            _key = cursor.key()
-            _prefix = _key[:kfl]
-            if _prefix != key_from:
-                break
-            cnt += 1
-            has_more = cursor.next()
-
-        return cnt
+        result = await txn.get(from_key, range_end=to_key, count_only=True)
+        return result
 
     def truncate(self, txn, rebuild_indexes=True):
         """

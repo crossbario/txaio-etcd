@@ -4,12 +4,23 @@ import datetime
 from pprint import pformat
 from typing import Optional, List, Dict
 
+from txaioetcd import pmap
+
 
 class User(object):
+
+    UUID = uuid.UUID(hex='fa1ed0fc-304e-4f66-8092-d901df1735e4')
+    PMAP = pmap.MapUuidCbor
+
+    NAME = 'users'
+    DESC = """CFC global users table.
+
+    The table holds all CFC users registered in this CFC instance.
+    """
+
     oid: int
     name: str
     authid: str
-    uuid: uuid.UUID
     email: str
     birthday: datetime.date
     is_friendly: bool
@@ -26,8 +37,6 @@ class User(object):
         if other.name != self.name:
             return False
         if other.authid != self.authid:
-            return False
-        if other.uuid != self.uuid:
             return False
         if other.email != self.email:
             return False
@@ -47,10 +56,9 @@ class User(object):
 
     def marshal(self):
         obj = {
-            'oid': self.oid,
+            'oid': self.oid.hex.encode() if self.oid else None,
             'name': self.name,
             'authid': self.authid,
-            'uuid': self.uuid.hex if self.uuid else None,
             'email': self.email,
             'birthday': {
                 'year': self.birthday.year if self.birthday else None,
@@ -68,11 +76,10 @@ class User(object):
     @staticmethod
     def parse(obj):
         user = User()
-        user.oid = obj.get('oid', None)
+        if 'oid' in obj:
+            user.oid = uuid.UUID(hex=obj['oid'].decode())
         user.name = obj.get('name', None)
         user.authid = obj.get('authid', None)
-        if 'uuid' in obj:
-            user.uuid = uuid.UUID(hex=obj['uuid'])
         user.email = obj.get('email', None)
         if 'birthday' in obj:
             b = obj['birthday']
@@ -92,7 +99,6 @@ class User(object):
         user.email = '{}@github.com'.format(user.name)
         user.tags = random.sample(['geek', 'sudoko', 'yellow', 'dronepilot', 'drwho'], 2)
         user.authid = 'test-{}'.format(user.oid)
-        user.uuid = uuid.uuid4()
         user.birthday = datetime.date(1950, 12, 24)
         user.is_friendly = True
         for j in range(10):
