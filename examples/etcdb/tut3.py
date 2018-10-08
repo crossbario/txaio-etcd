@@ -1,4 +1,4 @@
-import uuid
+import random
 
 import txaio
 txaio.use_twisted()
@@ -6,11 +6,9 @@ txaio.use_twisted()
 from twisted.internet.task import react
 from twisted.internet.defer import ensureDeferred
 
-from txaioetcd import Client, Database, pmap
+from txaioetcd import Client, Database
 
 from user import User
-
-
 
 
 async def main(reactor):
@@ -27,28 +25,54 @@ async def main(reactor):
                                  marshal=User.marshal, unmarshal=User.parse,
                                  name=User.NAME, description=User.DESC)
 
+    users_by_name = await db.attach_slot(User.UUID_IDX_BY_NAME, User.PMAP_IDX_BY_NAME, create=True)
+    users.attach_index('idx1', lambda user: user.name, users_by_name)
+
+    # select existing users
     async with db.begin() as txn:
-        _user_keys, _users = await users.select(txn, return_keys=True, return_values=True)
+        _users = await users.select(txn)
         if _users:
-            print('got {} users'.format(len(_users)))
-            if False:
-                for user in _users:
-                    print('loaded user\n{}'.format(user))
+            print('yay, got {} users =)'.format(len(_users)))
+
+            name = _users[0].name
+            print('get user for name {}'.format(name))
+            oid = await users_by_name[txn, name]
+            if oid:
+                user = await users[txn, oid]
+                print('user: {}'.format(user))
         else:
-            print('no users yet in database')
+            print('no users yet in database =(')
 
-    # new user ID
-    oid = uuid.uuid4()
-
-    # 1) store a native object in a UUID->CBOR table slot
+    # delete user objects
+    oids = []
     async with db.begin(write=True) as txn:
-        user = User.create_test_user()
-        user.oid = oid
+        for i in range(5):
+            name = 'user{}'.format(random.randint(1, 10))
+            oid = await users_by_name[txn, name]
+            if oid:
+                print('deleting record')
+                #del users[txn, oid]
+                await users.delete((txn, oid))
+                oids.append(oid)
+                break
+            else:
+                print('missing data record!')
 
-        # the following enqueues the operation for when the transaction goes out of scope
-        users[txn, user.oid] = user
+    print('user objects deleted: oids={}'.format(oids))
 
-    print('new user object stored: name={}, oid={}'.format(user.name, user.oid))
+    # create and store new users
+    oids = []
+    async with db.begin(write=True) as txn:
+        for i in range(1, 10):
+            user = User.create_test_user(name='user{}'.format(i))
+            user_exists = await users_by_name[txn, user.name]
+            if True or not user_exists:
+                users[txn, user.oid] = user
+                oids.append(user.oid)
+            else:
+                print(user_exists)
+
+    print('new user objects stored: oids={}'.format(oids))
 
     print('etcd stats', db.stats())
 

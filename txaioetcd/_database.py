@@ -452,7 +452,14 @@ class Database(object):
             self._slots_by_index[slot.oid] = slot_index
             print('wrote metadata for {} to slot {}'.format(slot.oid, slot_index))
 
-    async def attach_slot(self, oid, klass, marshal, unmarshal, create=True, name=None, description=None):
+    async def attach_slot(self,
+                          oid,
+                          klass,
+                          marshal=None,
+                          unmarshal=None,
+                          create=True,
+                          name=None,
+                          description=None):
         """
 
         :param slot:
@@ -463,8 +470,8 @@ class Database(object):
         """
         assert isinstance(oid, uuid.UUID)
         assert issubclass(klass, _pmap.PersistentMap)
-        assert callable(marshal)
-        assert callable(unmarshal)
+        assert marshal is None or callable(marshal)
+        assert unmarshal is None or callable(unmarshal)
         assert type(create) == bool
         assert name is None or type(name) == six.text_type
         assert description is None or type(description) == six.text_type
@@ -484,7 +491,10 @@ class Database(object):
             slot_index = self._slots_by_index[oid]
             print('persistant map of oid {} found in slot {}'.format(oid, slot_index))
 
-        slot_pmap = klass(slot_index, marshal=marshal, unmarshal=unmarshal)
+        if marshal:
+            slot_pmap = klass(slot_index, marshal=marshal, unmarshal=unmarshal)
+        else:
+            slot_pmap = klass(slot_index)
 
         return slot_pmap
 
