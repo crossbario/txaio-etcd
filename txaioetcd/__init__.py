@@ -34,7 +34,31 @@ from txaioetcd._types import KeySet, KeyValue, Header, Status, \
     Op, OpGet, OpSet, OpDel, Transaction, Expired, Error, Failed, Success, \
     Range
 
-from txaioetcd import _pmap as pmap
+from txaioetcd._pmap import MapSlotUuidUuid, \
+                            MapUuidString, \
+                            MapUuidOid, \
+                            MapUuidUuid, \
+                            MapUuidJson, \
+                            MapUuidCbor, \
+                            MapUuidPickle, \
+                            MapUuidFlatBuffers, \
+                            MapUuidStringUuid, \
+                            MapUuidUuidSet, \
+                            MapStringString, \
+                            MapStringOid, \
+                            MapStringUuid, \
+                            MapStringJson, \
+                            MapStringCbor, \
+                            MapStringPickle, \
+                            MapStringFlatBuffers, \
+                            MapOidString, \
+                            MapOidOid, \
+                            MapOidUuid, \
+                            MapOidJson, \
+                            MapOidCbor, \
+                            MapOidPickle, \
+                            MapOidFlatBuffers
+
 from txaioetcd._database import Database, DbTransaction, DbTransactionStats
 from txaioetcd._lease import Lease
 
