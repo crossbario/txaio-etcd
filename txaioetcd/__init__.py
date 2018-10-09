@@ -43,7 +43,9 @@ from txaioetcd._pmap import MapSlotUuidUuid, \
                             MapUuidPickle, \
                             MapUuidFlatBuffers, \
                             MapUuidStringUuid, \
+                            MapUuidUuidCbor, \
                             MapUuidUuidSet, \
+                            MapUuidStringUuid, \
                             MapStringString, \
                             MapStringOid, \
                             MapStringUuid, \
