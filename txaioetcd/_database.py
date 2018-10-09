@@ -38,7 +38,7 @@ import cbor2
 import txaio
 from txaioetcd import _types, _pmap
 
-from typing import Optional, List
+# from typing import Optional, List
 
 # Select the most precise wallclock measurement function available on the platform
 if sys.platform.startswith('win'):
@@ -229,10 +229,10 @@ class DbTransaction(object):
 
 class ConfigurationElement(object):
 
-    oid: uuid.UUID
-    name: str
-    description: Optional[str]
-    tags: Optional[List[str]]
+    # oid: uuid.UUID
+    # name: str
+    # description: Optional[str]
+    # tags: Optional[List[str]]
 
     def __init__(self, oid=None, name=None, description=None, tags=None):
         self._oid = oid
