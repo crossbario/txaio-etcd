@@ -171,17 +171,17 @@ class DbTransaction(object):
                 self._committed = res
 
                 self.log.info(
-                    'transaction committed (from rev {from_revision} to {revision}) with {ops} writes',
+                    'DB transaction committed: {ops} writes (rev {from_revision} to {revision})',
                     from_revision=self._revision,
-                    revision=self._revision,
+                    revision=res.header.revision,
                     ops=len(ops))  # noqa
             else:
                 self.log.info(
-                    'transaction committed (from rev {from_revision}) with no writes',
+                    'DB transaction completed: read only (rev {from_revision})',
                     from_revision=self._revision)
         else:
             # transaction aborted: throw away buffered transaction
-            self.log.info('transaction aborted (at rev {from_revision})',
+            self.log.warn('DB transaction aborted (rev {from_revision})',
                           from_revision=self._revision)
             self._committed = -1
 
