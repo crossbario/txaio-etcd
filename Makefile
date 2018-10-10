@@ -30,8 +30,13 @@ build_sql:
 examples:
 	cd examples && sh run.sh
 
+examples_etcdb:
+	cd examples/etcdb && sh run.sh
+
 clean:
 	-docker rmi crossbario/txaioetcd
+	-rm -rf .mypy_cache
+	-rm -rf .pytest_cache
 	-rm -rf ./txaioetcd.egg-info
 	-rm -rf ./build
 	-rm -rf ./dist
