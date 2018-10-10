@@ -42,7 +42,6 @@ from txaioetcd._pmap import MapSlotUuidUuid, \
                             MapUuidCbor, \
                             MapUuidPickle, \
                             MapUuidFlatBuffers, \
-                            MapUuidStringUuid, \
                             MapUuidUuidCbor, \
                             MapUuidUuidSet, \
                             MapUuidStringUuid, \
@@ -71,7 +70,11 @@ from txaioetcd._client_tx import Client
 # This is the complete public API of txaioetcd:
 __all__ = ('__version__', 'Client', 'Transaction', 'Lease', 'KeyValue', 'KeySet', 'Header', 'Status', 'Range',
            'Revision', 'Deleted', 'Error', 'Failed', 'Success', 'Expired', 'Comp', 'CompValue', 'CompVersion',
-           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'pmap', 'Database',
-           'DbTransaction', 'DbTransactionStats')
+           'CompCreated', 'CompModified', 'Op', 'OpGet', 'OpSet', 'OpDel', 'Database', 'DbTransaction',
+           'DbTransactionStats', 'MapSlotUuidUuid', 'MapUuidString', 'MapUuidOid', 'MapUuidUuid',
+           'MapUuidJson', 'MapUuidCbor', 'MapUuidPickle', 'MapUuidFlatBuffers', 'MapUuidUuidCbor',
+           'MapUuidUuidSet', 'MapUuidStringUuid', 'MapStringString', 'MapStringOid', 'MapStringUuid',
+           'MapStringJson', 'MapStringCbor', 'MapStringPickle', 'MapStringFlatBuffers', 'MapOidString',
+           'MapOidOid', 'MapOidUuid', 'MapOidJson', 'MapOidCbor', 'MapOidPickle', 'MapOidFlatBuffers')
 
 version = __version__

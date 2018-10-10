@@ -4,24 +4,16 @@ import datetime
 from pprint import pformat
 from typing import Optional, List, Dict
 
-from txaioetcd import pmap
+from zlmdb import table
+from txaioetcd import MapUuidCbor, MapStringUuid
 
 
 _USER_COUNTER = 0
 
 
 class User(object):
-
-    UUID = uuid.UUID(hex='fa1ed0fc-304e-4f66-8092-d901df1735e4')
-    UUID_IDX_BY_NAME = uuid.UUID(hex='aa2754e5-a859-4986-8749-1299828dc6e1')
-
-    PMAP = pmap.MapUuidCbor
-    PMAP_IDX_BY_NAME = pmap.MapStringUuid
-
-    NAME = 'users'
-    DESC = """CFC global users table.
-
-    The table holds all CFC users registered in this CFC instance.
+    """
+    CFC User.
     """
 
     oid: int
@@ -112,3 +104,19 @@ class User(object):
         user.friends = [random.randint(0, 9007199254740992) for _ in range(10)]
         user.referred_by = random.randint(0, 9007199254740992)
         return user
+
+
+@table('fa1ed0fc-304e-4f66-8092-d901df1735e4', marshal=User.marshal, parse=User.parse)
+class Users(MapUuidCbor):
+    """
+    CFC users table.
+
+    The table holds all CFC users registered in this CFC instance.
+    """
+
+
+@table('aa2754e5-a859-4986-8749-1299828dc6e1')
+class IndexUsersByName(MapStringUuid):
+    """
+    Index on CFC users: by name.
+    """

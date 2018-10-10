@@ -8,7 +8,7 @@ from twisted.internet.defer import ensureDeferred
 
 from txaioetcd import Client, Database
 
-from user import User
+from user import User, Users, IndexUsersByName
 
 
 async def main(reactor):
@@ -21,12 +21,9 @@ async def main(reactor):
     print('connected to etcd at revision {}'.format(revision))
 
     # users table
-    users = await db.attach_slot(User.UUID, User.PMAP, create=True,
-                                 marshal=User.marshal, unmarshal=User.parse,
-                                 name=User.NAME, description=User.DESC)
-
-    users_by_name = await db.attach_slot(User.UUID_IDX_BY_NAME, User.PMAP_IDX_BY_NAME, create=True)
-    users.attach_index('idx1', lambda user: user.name, users_by_name)
+    users = await db.attach_table(Users)
+    users_by_name = await db.attach_table(IndexUsersByName)
+    users.attach_index(users_by_name, lambda user: user.name)
 
     # select existing users
     async with db.begin() as txn:

@@ -4,16 +4,16 @@ import txaio
 txaio.use_twisted()
 
 from twisted.internet.task import react
-from twisted.internet.defer import ensureDeferred, inlineCallbacks
+from twisted.internet.defer import ensureDeferred
 
-from txaioetcd import Client, Database, pmap
+from txaioetcd import Client, Database, MapUuidCbor
 
 from user import User
 
 
 async def main(reactor):
 
-    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
     db = Database(Client(reactor))
     revision = await db.status()

@@ -4,9 +4,9 @@ import txaio
 txaio.use_twisted()
 
 from twisted.internet.task import react
-from twisted.internet.defer import ensureDeferred, inlineCallbacks
+from twisted.internet.defer import ensureDeferred
 
-from txaioetcd import Client, Database, pmap
+from txaioetcd import Client, Database, MapUuidCbor
 
 from user import User
 
@@ -15,7 +15,7 @@ async def main(reactor):
     # Our main (asynchronous) entry point.
 
     # users table schema (a table with UUID keys and CBOR values holding User objects)
-    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
     # persistent KV database client using etcd backend
     db = Database(Client(reactor))

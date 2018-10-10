@@ -35,6 +35,8 @@ from pprint import pformat
 import six
 import cbor2
 
+from twisted.python.reflect import qual
+
 import txaio
 from txaioetcd import _types, _pmap
 
@@ -444,22 +446,59 @@ class Database(object):
                     del self._slots[slot.oid]
                 if slot.oid in self._slots_by_index:
                     del self._slots_by_index[slot.oid]
-                print('deleted metadata')
+                self.log.debug(
+                    'Deleted metadata for table <{oid}> from slot {slot_index:03d}',
+                    oid=slot.oid,
+                    slot_index=slot_index)
 
         if slot:
             await self._client.set(key, data)
             self._slots[slot.oid] = slot
             self._slots_by_index[slot.oid] = slot_index
-            print('wrote metadata for {} to slot {}'.format(slot.oid, slot_index))
+            self.log.debug(
+                'Wrote metadata for table <{oid}> to slot {slot_index:03d}',
+                oid=slot.oid,
+                slot_index=slot_index)
 
-    async def attach_slot(self,
-                          oid,
-                          klass,
-                          marshal=None,
-                          unmarshal=None,
-                          create=True,
-                          name=None,
-                          description=None):
+    async def attach_table(self, klass):
+        """
+
+        :param klass:
+        :return:
+        """
+        assert issubclass(klass, _pmap.PersistentMap)
+
+        name = qual(klass)
+
+        if not hasattr(klass, '_zlmdb_oid') or not klass._zlmdb_oid:
+            raise TypeError('{} is not decorated as table slot'.format(name))
+
+        description = klass.__doc__.strip() if klass.__doc__ else None
+
+        pmap = await self._attach_slot(
+            klass._zlmdb_oid,
+            klass,
+            marshal=klass._zlmdb_marshal,
+            parse=klass._zlmdb_parse,
+            build=klass._zlmdb_build,
+            cast=klass._zlmdb_cast,
+            compress=klass._zlmdb_compress,
+            create=True,
+            name=name,
+            description=description)
+        return pmap
+
+    async def _attach_slot(self,
+                           oid,
+                           klass,
+                           marshal=None,
+                           parse=None,
+                           build=None,
+                           cast=None,
+                           compress=None,
+                           create=True,
+                           name=None,
+                           description=None):
         """
 
         :param slot:
@@ -470,31 +509,52 @@ class Database(object):
         """
         assert isinstance(oid, uuid.UUID)
         assert issubclass(klass, _pmap.PersistentMap)
+
         assert marshal is None or callable(marshal)
-        assert unmarshal is None or callable(unmarshal)
+        assert parse is None or callable(parse)
+
+        assert build is None or callable(build)
+        assert cast is None or callable(cast)
+
+        # either marshal+parse (for CBOR/JSON) OR build+cast (for Flatbuffers) OR all unset
+        assert (not marshal and not parse and not build and not cast) or \
+               (not marshal and not parse and build and cast) or \
+               (marshal and parse and not build and not cast)
+
         assert type(create) == bool
+
         assert name is None or type(name) == six.text_type
         assert description is None or type(description) == six.text_type
 
         await self._get_slots()
 
         if oid not in self._slots_by_index:
-            print('no slot for persistant map of oid {} found'.format(oid))
+            self.log.warn('No slot found in database with DB table <{oid}>: <{name}>', name=name, oid=oid)
             if create:
                 slot_index = await self._get_free_slot()
                 slot = Slot(oid=oid, creator='unknown', slot=slot_index, name=name, description=description)
-                print('allocating slot {} for persistant map {} ..'.format(slot_index, oid))
                 await self._set_slot(slot_index, slot)
+                self.log.info(
+                    'Allocated slot {slot_index:03d} for DB table <{oid}>: {name}',
+                    slot_index=slot_index,
+                    oid=oid,
+                    name=name)
             else:
-                raise Exception('no slot with persistant map of oid {} found'.format(oid))
+                raise Exception('No slot found in database with DB table <{oid}>: {name}', name=name, oid=oid)
         else:
             slot_index = self._slots_by_index[oid]
-            print('persistant map of oid {} found in slot {}'.format(oid, slot_index))
+            self.log.info(
+                'DB table <{oid}> attached from slot <{slot_index:03d}>: <{name}>',
+                name=name,
+                oid=oid,
+                slot_index=slot_index)
 
         if marshal:
-            slot_pmap = klass(slot_index, marshal=marshal, unmarshal=unmarshal)
+            slot_pmap = klass(slot_index, marshal=marshal, unmarshal=parse, compress=compress)
+        elif build:
+            slot_pmap = klass(slot_index, build=build, cast=cast, compress=compress)
         else:
-            slot_pmap = klass(slot_index)
+            slot_pmap = klass(slot_index, compress=compress)
 
         return slot_pmap
 

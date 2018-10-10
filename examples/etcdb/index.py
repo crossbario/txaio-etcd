@@ -4,22 +4,22 @@ import txaio
 txaio.use_twisted()
 
 from twisted.internet.task import react
-from twisted.internet.defer import ensureDeferred, inlineCallbacks
+from twisted.internet.defer import ensureDeferred
 
-from txaioetcd import Client, Database, pmap
+from txaioetcd import Client, Database, MapUuidCbor, MapStringUuid
 
 from user import User
 
 
 async def main(reactor):
 
-    tab_users = pmap.MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
+    tab_users = MapUuidCbor(1, marshal=lambda user: user.marshal(), unmarshal=User.parse)
 
-    idx_users_by_name = pmap.MapStringUuid(2)
-    tab_users.attach_index('idx1', lambda user: user.name, idx_users_by_name)
+    idx_users_by_name = MapStringUuid(2)
+    tab_users.attach_index(idx_users_by_name, lambda user: user.name)
 
-    idx_users_by_email = pmap.MapStringUuid(3)
-    tab_users.attach_index('idx2', lambda user: user.email, idx_users_by_email)
+    idx_users_by_email = MapStringUuid(3)
+    tab_users.attach_index(idx_users_by_email, lambda user: user.email)
 
     db = Database(Client(reactor))
     revision = await db.status()
