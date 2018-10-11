@@ -33,6 +33,7 @@ import zlib
 import six
 
 from zlmdb import _types
+from txaioetcd._database import DbTransaction
 
 try:
     import snappy
@@ -236,6 +237,9 @@ class PersistentMap(MutableMapping):
 
         txn, key = txn_key
 
+        assert isinstance(txn, DbTransaction)
+        assert key
+
         _key = struct.pack('>H', self._slot) + self._serialize_key(key)
         _data = self._serialize_value(value)
 
@@ -251,6 +255,8 @@ class PersistentMap(MutableMapping):
             _key = struct.pack('>H', index.pmap._slot) + index.pmap._serialize_key(index.fkey(value))
             _data = index.pmap._serialize_value(key)
             txn.put(_key, _data)
+
+            print('DB INDEX PUT:', index, key, _key, _data)
 
     def __delitem__(self, txn_key):
         """
@@ -293,6 +299,31 @@ class PersistentMap(MutableMapping):
 
     def __iter__(self):
         raise Exception('not implemented')
+
+    async def watch(self, txn, on_watch, from_key=None, to_key=None):
+        """
+
+        :param txn:
+        :param on_watch:
+        :param from_key:
+        :param to_key:
+        :return:
+        """
+        assert callable(on_watch)
+
+        if from_key:
+            from_key = self._serialize_key(from_key)
+        else:
+            from_key = struct.pack('>H', self._slot)
+
+        if to_key:
+            to_key = self._serialize_key(to_key)
+        else:
+            to_key = struct.pack('>H', self._slot + 1)
+
+        watching = await txn.watch(on_watch, from_key=from_key, to_key=to_key, keys_only=False)
+
+        return watching
 
     async def select(self, txn, from_key=None, to_key=None, return_keys=False, return_values=True):
         """

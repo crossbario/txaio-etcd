@@ -175,14 +175,14 @@ class DbTransaction(object):
                     from_revision=self._revision,
                     revision=res.header.revision,
                     ops=len(ops))  # noqa
+                for op in ops:
+                    self.log.info('DB {op}', op=str(op))
             else:
                 self.log.info(
-                    'DB transaction completed: read only (rev {from_revision})',
-                    from_revision=self._revision)
+                    'DB transaction completed: read only (rev {from_revision})', from_revision=self._revision)
         else:
             # transaction aborted: throw away buffered transaction
-            self.log.warn('DB transaction aborted (rev {from_revision})',
-                          from_revision=self._revision)
+            self.log.warn('DB transaction aborted (rev {from_revision})', from_revision=self._revision)
             self._committed = -1
 
         # finally: transaction buffer, but not the transaction revision
@@ -191,7 +191,7 @@ class DbTransaction(object):
     async def get(self, key, range_end=None, keys_only=None):
         assert (self._revision is not None)
 
-        if range_end is None and key in self._buffer:
+        if range_end is None and self._buffer and key in self._buffer:
             op, data = self._buffer[key]
             if op == DbTransaction.PUT:
                 return data

@@ -804,7 +804,7 @@ class OpSet(Op):
 
     def __str__(self):
         return u'OpSet(key={}, value={}, lease={}, return_previous={})'.format(
-            _maybe_text(self.key), _maybe_text(self.value, self.lease, self.return_previous))
+            _maybe_text(self.key), self.value, self.lease, self.return_previous)
 
 
 class OpDel(Op):
