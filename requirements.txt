@@ -1,7 +1,8 @@
-six>=1.10.0
-txaio>=2.6.1
-twisted>=16.6.0
-treq>=16.12.0
 aiohttp>=2.2.5; python_version >= '3.4'
-zlmdb>=18.10.1
+cbor2>=4.1.0
 #psycopg2>=2.7.5
+six>=1.10.0
+treq>=16.12.0
+twisted>=18.9.0
+txaio>=2.6.1
+zlmdb>=18.10.2
