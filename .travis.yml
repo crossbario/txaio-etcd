@@ -105,9 +105,9 @@ matrix:
     # https://docs.travis-ci.com/user/build-stages/matrix-expansion/
     - stage: deploy
       python: "3.7"
-      if: repo = crossbario/txaio AND branch = master AND type != pull_request
+      if: repo = crossbario/txaio-etcd AND branch = master AND type != pull_request
       #on:
-      #  repo: crossbario/txaio
+      #  repo: crossbario/txaio-etcd
       #  branch: master
       #  # tags: true
       skip_cleanup: true
